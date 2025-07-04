@@ -1,0 +1,486 @@
+package com.peertopeer.config.handlers;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.peertopeer.entity.Conversations;
+import com.peertopeer.entity.Message;
+import com.peertopeer.enums.ConversationStatus;
+import com.peertopeer.enums.ConversationType;
+import com.peertopeer.enums.MessageStatus;
+import com.peertopeer.enums.SourceType;
+import com.peertopeer.repository.ConversationsRepository;
+import com.peertopeer.repository.MessageRepository;
+import com.peertopeer.repository.UserConversationRepository;
+import com.peertopeer.service.PresenceService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import static com.peertopeer.utils.PeerUtils.getParam;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class ChatWebSocketHandler extends TextWebSocketHandler {
+
+    private final Map<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> chatScreenPresence = new ConcurrentHashMap<>();
+    private final Map<String, Long> sessionHeartbeats = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService heartbeatScheduler = Executors.newScheduledThreadPool(1);
+    private final Map<String, Set<String>> pendingAcknowledgments = new ConcurrentHashMap<>();
+    private final ConversationsRepository conversationsRepository;
+    private final MessageRepository messageRepository;
+    private final UserConversationRepository userConversationRepository;
+    private final PresenceService presenceService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        try {
+            String user = getParam(session, "user");
+            String type = getParam(session, "type");
+            String room = getParam(session, "target");
+
+            if (user == null || type == null) {
+                log.error("Missing required parameters: user={}, type={}", user, type);
+                session.close(CloseStatus.BAD_DATA);
+                return;
+            }
+
+            WebSocketSession existingSession = userSessions.get(user);
+            if (existingSession != null && existingSession.isOpen()) {
+                existingSession.close(CloseStatus.NORMAL);
+            }
+
+            userSessions.put(user, session);
+            sessionHeartbeats.put(user, System.currentTimeMillis());
+            session.getAttributes().put("user", user);
+            session.getAttributes().put("type", type);
+            session.getAttributes().put("connectedAt", Instant.now().toEpochMilli());
+
+            if ("group".equals(type) && room != null) {
+                roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
+                session.getAttributes().put("room", room);
+            }
+
+            sendToSession(session, Map.of(
+                    "type", "connectionAck",
+                    "user", user,
+                    "timestamp", System.currentTimeMillis()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error establishing connection", e);
+            try {
+                session.close(CloseStatus.SERVER_ERROR);
+            } catch (IOException ex) {
+                log.error("Error closing session", ex);
+            }
+        }
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        String user = (String) session.getAttributes().get("user");
+        String room = (String) session.getAttributes().get("room");
+
+        if (user != null) {
+            userSessions.remove(user);
+            sessionHeartbeats.remove(user);
+            pendingAcknowledgments.remove(user);
+            chatScreenPresence.values().forEach(set -> set.remove(user));
+        }
+
+        if (room != null) {
+            Set<WebSocketSession> sessions = roomSessions.get(room);
+            if (sessions != null) {
+                sessions.remove(session);
+                if (sessions.isEmpty()) {
+                    roomSessions.remove(room);
+                }
+            }
+        }
+
+        log.info("Disconnected: {} (status: {})", user, status);
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        try {
+            Map<String, Object> payload = objectMapper.readValue(message.getPayload(), Map.class);
+            String user = (String) session.getAttributes().get("user");
+            String type = (String) session.getAttributes().get("type");
+
+            // Update heartbeat
+            if (user != null) {
+                sessionHeartbeats.put(user, System.currentTimeMillis());
+            }
+
+            String messageType = (String) payload.get("type");
+            if (messageType == null) {
+                messageType = "message"; // Default to message if no type specified
+            }
+
+            switch (messageType) {
+                case "heartbeat" -> handleHeartbeat(session, payload);
+                case "typing" -> handleTypingStatus(session, payload);
+                case "message" -> handleMessage(session, payload);
+                case "messageAck" -> handleMessageAcknowledgment(session, payload);
+                case "statusUpdate" -> handleStatusUpdate(session, payload);
+                case "joinChatScreen" -> handleJoinChatScreen(session, payload);
+                case "leaveChatScreen" -> handleLeaveChatScreen(session, payload);
+                default -> handleDefaultMessageType(session, payload);
+            }
+        } catch (Exception e) {
+            log.error("Error handling message from session: {}", session.getId(), e);
+            sendErrorToSession(session, "Error processing message: " + e.getMessage());
+        }
+    }
+
+    private void handleHeartbeat(WebSocketSession session, Map<String, Object> payload) {
+        String user = (String) session.getAttributes().get("user");
+        if (user != null) {
+            sessionHeartbeats.put(user, System.currentTimeMillis());
+            sendToSession(session, Map.of(
+                    "type", "heartbeatAck",
+                    "timestamp", System.currentTimeMillis()
+            ));
+        }
+    }
+
+    private void handleMessage(WebSocketSession session, Map<String, Object> payload) {
+        String messageContent = (String) payload.get("msg");
+        String room = (String) session.getAttributes().get("room");
+        String type = (String) session.getAttributes().get("type");
+
+        if ("group".equals(type) && room != null) {
+            sendMessageToGroup(session, messageContent, room);
+        } else if ("private".equals(type)) {
+            sendPrivateMessage(session, payload);
+        }
+    }
+
+    private void sendMessageToGroup(WebSocketSession session, String message, String room) {
+        Map<String, Object> messageData = Map.of(
+                "type", "message",
+                "from", session.getAttributes().get("user"),
+                "msg", message,
+                "room", room,
+                "timestamp", System.currentTimeMillis()
+        );
+        sendToRoom(room, messageData);
+    }
+
+    private void sendPrivateMessage(WebSocketSession session, Map<String, Object> payload) {
+        String fromUser = (String) session.getAttributes().get("user");
+        String toUser = (String) payload.get("to");
+        String messageContent = (String) payload.get("msg");
+
+        if (fromUser == null || toUser == null || messageContent == null) {
+            log.warn("Invalid private message: from={}, to={}, msg={}", fromUser, toUser, messageContent);
+            return;
+        }
+
+        // Save message to database
+        Message savedMessage = saveMessageToDatabase(fromUser, toUser, messageContent);
+
+        // Send message to recipient
+        WebSocketSession recipientSession = userSessions.get(toUser);
+        boolean isRecipientOnline = recipientSession != null && recipientSession.isOpen();
+
+        if (isRecipientOnline) {
+            Map<String, Object> messageData = Map.of(
+                    "type", "message",
+                    "from", fromUser,
+                    "to", toUser,
+                    "msg", messageContent,
+                    "id", savedMessage.getId(),
+                    "status", MessageStatus.DELIVERED.name(),
+                    "timestamp", System.currentTimeMillis()
+            );
+            sendToSession(recipientSession, messageData);
+
+            // Update message status to DELIVERED
+            savedMessage.setStatus(MessageStatus.DELIVERED);
+            messageRepository.save(savedMessage);
+        }
+
+        // Send status update back to sender
+        Map<String, Object> statusUpdate = Map.of(
+                "type", "messageStatusUpdate",
+                "messageId", savedMessage.getId(),
+                "status", isRecipientOnline ? MessageStatus.DELIVERED.name() : MessageStatus.SEND.name(),
+                "timestamp", System.currentTimeMillis()
+        );
+        sendToSession(session, statusUpdate);
+    }
+
+    private Message saveMessageToDatabase(String fromUser, String toUser, String messageContent) {
+        try {
+            // Create or get conversation
+            String chatId = getChatId(fromUser, toUser);
+            Conversations conversation = conversationsRepository.findByChatId(chatId)
+                    .orElseGet(() -> {
+                        Conversations newConv = new Conversations();
+//                        newConv.setChatId(chatId);
+                        newConv.setType(ConversationType.PRIVATE);
+                        newConv.setStatus(ConversationStatus.ACTIVE);
+                        newConv.setCreatedAt(Instant.now().toEpochMilli());
+                        return conversationsRepository.save(newConv);
+                    });
+
+            // Create message
+            Message message = new Message();
+            message.setConversation(conversation);
+            message.setSenderUUID(fromUser);
+            message.setReceiverUUID(toUser);
+            message.setMessage(messageContent);
+            message.setStatus(MessageStatus.SEND);
+            message.setSourceType(SourceType.PRIVATE);
+            message.setCreatedAt(Instant.now().toEpochMilli());
+
+            return messageRepository.save(message);
+        } catch (Exception e) {
+            log.error("Error saving message to database", e);
+            throw new RuntimeException("Failed to save message", e);
+        }
+    }
+
+    private String getChatId(String user1, String user2) {
+        return user1.compareTo(user2) < 0 ? user1 + "_" + user2 : user2 + "_" + user1;
+    }
+
+    private void handleStatusUpdate(WebSocketSession session, Map<String, Object> payload) {
+        String messageId = payload.get("messageId").toString();
+        String status = (String) payload.get("status");
+        String fromUser = (String) session.getAttributes().get("user");
+        String toUser = (String) payload.get("to");
+
+        if (messageId == null || status == null || toUser == null) {
+            log.warn("Invalid status update: messageId={}, status={}, to={}", messageId, status, toUser);
+            return;
+        }
+
+        try {
+            // Update message status in database
+            Optional<Message> messageOpt = messageRepository.findById(Long.valueOf(messageId));
+            if (messageOpt.isPresent()) {
+                Message message = messageOpt.get();
+                message.setStatus(MessageStatus.valueOf(status));
+                messageRepository.save(message);
+
+                // Notify the original sender about the status update
+                WebSocketSession senderSession = userSessions.get(toUser);
+                if (senderSession != null && senderSession.isOpen()) {
+                    Map<String, Object> statusUpdate = Map.of(
+                            "type", "messageStatusUpdate",
+                            "messageId", messageId,
+                            "status", status,
+                            "timestamp", System.currentTimeMillis()
+                    );
+                    sendToSession(senderSession, statusUpdate);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error updating message status", e);
+        }
+    }
+
+    private void handleJoinChatScreen(WebSocketSession session, Map<String, Object> payload) {
+        String user = (String) session.getAttributes().get("user");
+        String chatId = (String) payload.get("chatId");
+
+        if (user != null && chatId != null) {
+            chatScreenPresence.computeIfAbsent(chatId, k -> ConcurrentHashMap.newKeySet()).add(user);
+            log.info("User {} joined chat screen for chatId: {}", user, chatId);
+
+            // Mark messages as seen when user joins chat screen
+            markMessagesAsSeen(user, chatId);
+        }
+    }
+
+    private void handleLeaveChatScreen(WebSocketSession session, Map<String, Object> payload) {
+        String user = (String) session.getAttributes().get("user");
+        String chatId = (String) payload.get("chatId");
+
+        if (user != null && chatId != null) {
+            Set<String> users = chatScreenPresence.get(chatId);
+            if (users != null) {
+                users.remove(user);
+                if (users.isEmpty()) {
+                    chatScreenPresence.remove(chatId);
+                }
+            }
+            log.info("User {} left chat screen for chatId: {}", user, chatId);
+        }
+    }
+
+    private void markMessagesAsSeen(String user, String chatId) {
+        try {
+            // Find all unread messages for this user in this chat
+            List<Message> unreadMessages = messageRepository.findUnreadMessagesForUserInChat(user, chatId);
+            messageRepository.markAsSeen(user,);
+
+            for (Message message : unreadMessages) {
+                message.setStatus(MessageStatus.SEEN);
+                messageRepository.save(message);
+
+                // Notify the sender that their message was seen
+                WebSocketSession senderSession = userSessions.get(message.getSenderUUID());
+                if (senderSession != null && senderSession.isOpen()) {
+                    Map<String, Object> statusUpdate = Map.of(
+                            "type", "messageStatusUpdate",
+                            "messageId", message.getId(),
+                            "status", MessageStatus.SEEN.name(),
+                            "timestamp", System.currentTimeMillis()
+                    );
+                    sendToSession(senderSession, statusUpdate);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error marking messages as seen", e);
+        }
+    }
+
+    private void sendToRoom(String room, Map<String, Object> messageData) {
+        Set<WebSocketSession> roomSessions = this.roomSessions.getOrDefault(room, Set.of());
+        for (WebSocketSession s : roomSessions) {
+            if (s.isOpen()) {
+                sendToSession(s, messageData);
+            }
+        }
+    }
+
+    private void sendToSession(WebSocketSession session, Map<String, Object> data) {
+        try {
+            if (session.isOpen()) {
+                String json = objectMapper.writeValueAsString(data);
+                session.sendMessage(new TextMessage(json));
+            }
+        } catch (IOException e) {
+            log.error("Error sending message to session", e);
+        }
+    }
+
+    private void sendErrorToSession(WebSocketSession session, String errorMessage) {
+        sendToSession(session, Map.of(
+                "type", "error",
+                "message", errorMessage,
+                "timestamp", System.currentTimeMillis()
+        ));
+    }
+
+    @Async
+    public void cleanUp() {
+        heartbeatScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                long currentTime = System.currentTimeMillis();
+                long timeoutThreshold = 60000; // 1 minute timeout
+                sessionHeartbeats.entrySet().removeIf(entry -> {
+                    if (currentTime - entry.getValue() > timeoutThreshold) {
+                        String user = entry.getKey();
+                        WebSocketSession session = userSessions.get(user);
+                        if (session != null) {
+                            try {
+                                session.close(CloseStatus.GOING_AWAY);
+                            } catch (IOException e) {
+                                log.error("Error closing stale session for user: {}", user, e);
+                            }
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+            } catch (Exception e) {
+                log.error("Error in heartbeat monitoring", e);
+            }
+        }, 30, 30, TimeUnit.SECONDS);
+    }
+
+    // Handle Typing Status
+    private void handleTypingStatus(WebSocketSession session, Map<String, Object> payload) {
+        String fromUser = (String) session.getAttributes().get("user");
+        String toUser = (String) payload.get("to");
+
+        if (fromUser == null || toUser == null || payload.get("isTyping") == null) {
+            log.warn("Invalid typing status request: from={}, to={}, isTyping={}", fromUser, toUser, payload.get("isTyping"));
+            return;
+        }
+
+        // Send typing status to the target user (recipient)
+        WebSocketSession targetSession = userSessions.get(toUser);
+        if (targetSession != null && targetSession.isOpen()) {
+            Map<String, Object> typingData = Map.of(
+                    "type", "typing",
+                    "from", fromUser,
+                    "isTyping", payload.get("isTyping"),
+                    "timestamp", System.currentTimeMillis()
+            );
+            sendToSession(targetSession, typingData);
+        }
+
+        // Optionally, you could also broadcast typing status to the entire chat room if it's a group chat
+        String room = (String) session.getAttributes().get("room");
+        if (room != null) {
+            sendTypingStatusToRoom(room, fromUser, Boolean.valueOf(payload.get("isTyping").toString()));
+        }
+    }
+
+    private void sendTypingStatusToRoom(String room, String fromUser, Boolean isTyping) {
+        Set<WebSocketSession> roomSessions = this.roomSessions.getOrDefault(room, Set.of());
+        for (WebSocketSession s : roomSessions) {
+            if (s.isOpen()) {
+                Map<String, Object> typingData = Map.of(
+                        "type", "typing",
+                        "from", fromUser,
+                        "isTyping", isTyping,
+                        "timestamp", System.currentTimeMillis()
+                );
+                sendToSession(s, typingData);
+            }
+        }
+    }
+
+    // Handle message acknowledgment
+    private void handleMessageAcknowledgment(WebSocketSession session, Map<String, Object> payload) {
+        String messageId = (String) payload.get("messageId");
+        String fromUser = (String) session.getAttributes().get("user");
+
+        if (messageId == null || fromUser == null) {
+            log.warn("Invalid acknowledgment request: messageId={}, fromUser={}", messageId, fromUser);
+            return;
+        }
+
+        log.info("Message {} acknowledged by user {}", messageId, fromUser);
+
+        // Update message status to 'DELIVERED' or 'READ'
+        Optional<Message> messageOpt = messageRepository.findById(Long.valueOf(messageId));
+        messageOpt.ifPresent(message -> {
+            message.setStatus(MessageStatus.DELIVERED);
+            messageRepository.save(message);
+        });
+    }
+
+    // Default message handling (for any unsupported message type)
+    private void handleDefaultMessageType(WebSocketSession session, Map<String, Object> payload) {
+        String messageType = (String) payload.get("type");
+        log.warn("Received unsupported message type: {}", messageType);
+    }
+
+    public WebSocketSession getUserSession(String sender) {
+        return userSessions.get(sender);
+    }
+}

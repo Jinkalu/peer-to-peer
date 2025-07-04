@@ -1,0 +1,204 @@
+let socket;
+let presenceSocket;
+let typingTimeout;
+let lastTypingState = false;
+const messageStore = {};
+let isTargetPresent = false;
+
+function getChatId(user1, user2) {
+    return user1 < user2 ? `${user1}_${user2}` : `${user2}_${user1}`;
+}
+
+function connect() {
+    const user = localStorage.getItem("user");
+    const currentTarget = localStorage.getItem("target");
+    if (!user || !currentTarget) {
+        alert("Missing user or target. Please go back to the home page.");
+        return;
+    }
+
+    document.getElementById("chatInfo").innerText = `You are ${user}. Chatting with ${currentTarget}`;
+    const url = `ws://localhost:8080/chat?user=${user}&type=private`;
+    socket = new WebSocket(url);
+
+    socket.onopen = () => {
+        log("Connected to private chat.");
+        document.getElementById("msgInput").disabled = false;
+        const chatId = getChatId(user, currentTarget);
+        socket.send(JSON.stringify({
+            type: "joinChatScreen",
+            chatId: chatId
+        }));
+        connectOnScreenPresence();
+    };
+
+    socket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === "typing") {
+                document.getElementById("typingStatus").textContent = data.isTyping ? `${data.from} is typing...` : "";
+                return;
+            }
+
+            if (data.type === "message") {
+                const { from, id, msg, status } = data;
+                if (!messageStore[from]) messageStore[from] = [];
+                if (!messageStore[from].some(m => m.id === id)) {
+                    messageStore[from].push({ id, from, msg, status });
+                    if (from === currentTarget) {
+                        document.getElementById("typingStatus").textContent = "";
+                        log(`Received: ${msg}`, "other", status);
+                        markMessageAsSeen(id, from);
+                    }
+                }
+                return;
+            }
+
+            if (data.type === "messageStatusUpdate") {
+                updateMessageStatusInUI(data.messageId, data.status);
+                return;
+            }
+
+            if (data.type === "bulkStatusUpdate") {
+                updateBulkMessageStatus(data.chatId, data.status);
+                return;
+            }
+        } catch (e) {
+            console.warn("Non-JSON message received:", event.data);
+        }
+    };
+
+    socket.onclose = () => {
+        log("Connection closed.");
+        const chatId = getChatId(user, currentTarget);
+        socket.send(JSON.stringify({
+            type: "leaveChatScreen",
+            chatId: chatId
+        }));
+    };
+
+    loadChatHistory(user, currentTarget);
+
+    document.getElementById("msgInput").addEventListener("input", () => {
+        sendTypingStatus(true);
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => sendTypingStatus(false), 1500);
+    });
+}
+
+function loadChatHistory(user, currentTarget) {
+    fetch(`http://localhost:8080/api/chat-history?sender=${user}&receiver=${currentTarget}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!messageStore[currentTarget]) messageStore[currentTarget] = [];
+            data.forEach(msg => {
+                const msgEntry = {
+                    id: msg.id || `${msg.senderUUID}_${msg.message}`,
+                    from: msg.senderUUID,
+                    msg: msg.message,
+                    status: msg.status
+                };
+                const chat = messageStore[currentTarget];
+                if (!chat.some(m => m.id === msgEntry.id)) {
+                    chat.push(msgEntry);
+                }
+                log(`${msg.senderUUID === user ? "You" : "Received"}: ${msg.message}`);
+            });
+        })
+        .catch(err => console.error("Failed to load chat history:", err));
+}
+
+function sendMessage() {
+    const msgBox = document.getElementById("msgInput");
+    const msg = msgBox.value.trim();
+    const to = localStorage.getItem("target");
+    const from = localStorage.getItem("user");
+    if (!to || !msg) return;
+
+    socket.send(JSON.stringify({ to, msg }));
+
+    const tempId = `temp_${Date.now()}`;
+    if (!messageStore[to]) messageStore[to] = [];
+    messageStore[to].push({ id: tempId, from, msg, status: "PENDING" });
+
+    log("You: " + msg, "you", "PENDING");
+    msgBox.value = "";
+    sendTypingStatus(false);
+}
+
+function markMessageAsSeen(messageId, sender) {
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: "statusUpdate",
+            messageId: messageId,
+            status: "SEEN",
+            to: sender
+        }));
+    }
+}
+
+function updateMessageStatusInUI(messageId, status) {
+    const messageElements = document.querySelectorAll(`.message[data-message-id="${messageId}"]`);
+    messageElements.forEach(element => {
+        const statusSpan = element.querySelector('.status-icon');
+        if (statusSpan) statusSpan.innerHTML = getStatusIcon(status);
+    });
+}
+
+function updateBulkMessageStatus(chatId, status) {
+    const chat = messageStore[chatId];
+    chat.forEach(msg => {
+        if (msg.from === chatId) msg.status = status;
+    });
+    reloadMessages();
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'PENDING': return '⏳';
+        case 'SEND': return '✓';
+        case 'DELIVERED': return '✓✓';
+        case 'SEEN': return '<span style="color:blue;">✓✓</span>';
+        default: return '';
+    }
+}
+
+ function log(message, type = "info", status = null) {
+        const messages = document.getElementById("messages");
+        const div = document.createElement("div");
+        div.className = `message ${type}`;
+
+        if (type === "you" && status) {
+            const icon = getStatusIcon(status);
+            div.innerHTML = `${message} <span style="float:right">${icon}</span>`;
+        } else {
+            div.textContent = message;
+        }
+
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function connectOnScreenPresence() {
+        const user = localStorage.getItem("user");
+        const target = localStorage.getItem("target");
+        const chatId = getChatId(user, target);
+        const url = `ws://localhost:8080/on-screen-presence?user=${user}&chatId=${chatId}`;
+        presenceSocket = new WebSocket(url);
+
+        presenceSocket.onopen = () => {
+            console.log("[Presence] " + user + " watching chat with " + target);
+        };
+
+        presenceSocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === "onScreenStatus" && data.from === target) {
+                isTargetPresent = data.present;
+                console.log("[Presence] " + target + " is on-screen: " + isTargetPresent);
+            }
+        };
+
+        presenceSocket.onclose = () => console.log("[Presence] connection closed");
+    }
+
+  window.onload = connect;

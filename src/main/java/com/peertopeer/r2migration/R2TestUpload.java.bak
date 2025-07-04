@@ -1,0 +1,57 @@
+package com.peertopeer.r2migration;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.net.URI;
+
+public class R2TestUpload {
+
+    public static void main(String[] args) {
+        S3Client s3 = S3Client.builder()
+                .region(Region.US_EAST_1) // region is required but ignored by R2
+                .endpointOverride(URI.create(R2_ENDPOINT))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(true)
+                        .build())
+                .build();
+
+        String testKey = "test-upload-file.txt";
+        String testContent = "Hello from Cloudflare R2 test upload!";
+
+        try {
+            // Upload a small test file
+            PutObjectRequest putReq = PutObjectRequest.builder()
+                    .bucket(BUCKET_NAME)
+                    .key(testKey)
+                    .build();
+
+            s3.putObject(putReq, RequestBody.fromString(testContent));
+            System.out.println("Upload successful: " + testKey);
+
+            // Check if the object exists
+            HeadObjectRequest headReq = HeadObjectRequest.builder()
+                    .bucket(BUCKET_NAME)
+                    .key(testKey)
+                    .build();
+
+            s3.headObject(headReq);
+            System.out.println("File exists confirmed on R2: " + testKey);
+
+        } catch (Exception e) {
+            System.err.println("Error during R2 upload or check:");
+            e.printStackTrace();
+        } finally {
+            s3.close();
+        }
+    }
+}
+

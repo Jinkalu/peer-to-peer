@@ -1,0 +1,43 @@
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      padding: 30px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    ul#userList {
+      list-style-type: none;
+      padding: 0;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    li {
+      padding: 12px 20px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background-color: #fff;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      transition: transform 0.1s ease;
+    }
+
+    li:hover {
+      transform: scale(1.02);
+    }
+
+    li.online {
+      color: green;
+      border-left: 5px solid green;
+      cursor: pointer;
+    }
+
+    li.offline {
+      color: red;
+      border-left: 5px solid red;
+      cursor: pointer;
+    }

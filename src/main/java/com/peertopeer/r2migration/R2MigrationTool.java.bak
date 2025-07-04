@@ -1,0 +1,121 @@
+package com.peertopeer.r2migration;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.io.*;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.Files;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+
+public class R2MigrationTool {
+
+
+
+    private static final int THREAD_COUNT = 8;
+
+    public static void main(String[] args) throws Exception {
+        List<String> filenames = fetchFileNamesFromDB();
+        S3Client s3 = s3Client();
+
+        ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
+        for (String filename : filenames) {
+            executor.submit(() -> {
+                try {
+                    if (fileExists(s3, filename)) {
+                        System.out.println("[SKIP] Already exists: " + filename);
+                        return;
+                    }
+                    File file = downloadFile(filename);
+                    if (file != null) {
+                        uploadFileToR2(s3, filename, file);
+                        file.delete();
+                    }
+                } catch (Exception e) {
+                    System.err.println("[ERROR] Failed to process: " + filename + ", Reason: " + e.getMessage());
+                }
+            });
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.HOURS);
+        s3.close();
+    }
+
+    private static List<String> fetchFileNamesFromDB() throws SQLException {
+        List<String> files = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("""
+                     select * from media  where thumbnail_url IS NOT NULL AND media_type = 'application/octet-stream'
+                     AND source_type ='POST' AND status =0
+                     """)) {
+
+            while (rs.next()) {
+                files.add(rs.getString("thumbnail_url"));
+            }
+        }
+        return files;
+    }
+
+    private static boolean fileExists(S3Client s3, String key) {
+        try {
+            s3.headObject(HeadObjectRequest.builder().bucket(BUCKET_NAME).key(key).build());
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static File downloadFile(String filename) {
+        try (InputStream in = new URL(OLD_R2_URL + filename).openStream()) {
+            File tempFile = Files.createTempFile("r2file-", "-" + filename.replaceAll("/", "_")).toFile();
+            try (OutputStream out = new FileOutputStream(tempFile)) {
+                in.transferTo(out);
+            }
+            return tempFile;
+        } catch (IOException e) {
+            System.err.println("[ERROR] Download failed: " + filename);
+            return null;
+        }
+    }
+
+    private static void uploadFileToR2(S3Client s3, String key, File file) {
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(BUCKET_NAME)
+                .key(key)
+                .build();
+
+
+        s3.putObject(request, file.toPath());
+        System.out.println("[UPLOAD] Success: " + key);
+    }
+
+
+    public static S3Client s3Client() {
+        return S3Client.builder()
+                .region(Region.of("auto"))
+                .endpointOverride(URI.create(R2_ENDPOINT))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)
+                ))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(true)
+                        .build())
+                .build();
+    }
+
+
+}

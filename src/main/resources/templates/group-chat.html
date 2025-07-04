@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <title>Group Chat</title>
+</head>
+<body>
+<h2>Group Chat</h2>
+
+<div id="chatInfo"></div>
+
+<div id="chat" style="margin-top:20px;">
+  <div id="messages" style="border:1px solid #ccc;height:200px;overflow:auto;padding:10px;"></div>
+  <input type="text" id="msgInput" placeholder="Type a message...">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+  let socket;
+
+  function connect() {
+    const user = localStorage.getItem("user");
+    const room = localStorage.getItem("target");
+
+    if (!user || !room) {
+      alert("Missing user or room name. Please go back to the home page.");
+      return;
+    }
+
+    document.getElementById("chatInfo").innerText = `Connected as ${user} in room ${room}`;
+
+    const url = `ws://localhost:8080/chat?user=${user}&type=group&target=${room}`;
+    socket = new WebSocket(url);
+
+    socket.onopen = () => log("Connected to group chat.");
+    socket.onmessage = (event) => log("Received: " + event.data);
+    socket.onclose = () => log("Connection closed.");
+  }
+
+  function sendMessage() {
+    const msg = document.getElementById("msgInput").value;
+    socket.send(JSON.stringify({ msg }));
+    document.getElementById("msgInput").value = '';
+  }
+
+  function log(message) {
+    const messages = document.getElementById("messages");
+    messages.innerHTML += `<div>${message}</div>`;
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  window.onload = connect;
+</script>
+</body>
+</html>
