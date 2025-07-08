@@ -1,6 +1,7 @@
 package com.peertopeer.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.peertopeer.enums.ConversationStatus;
 import com.peertopeer.enums.ConversationType;
 import jakarta.persistence.*;
@@ -11,7 +12,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Data
@@ -42,10 +45,18 @@ public class Conversations {
     private Long createdAt;
 
     @Version
-    private Long updatedAt; // For optimistic locking
+    private Long updatedAt;
 
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Message> messages = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "conversation_user",
+            joinColumns = @JoinColumn(name = "conversation_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<Users> users = new HashSet<>();
+
+
 
     @PrePersist
     protected void onCreate() {

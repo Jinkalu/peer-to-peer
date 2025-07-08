@@ -9,7 +9,7 @@ function getChatId(user1, user2) {
 
 
     function connect() {
-        const user = localStorage.getItem("user");
+        const user = localStorage.getItem("username");
         const currentTarget = localStorage.getItem("target");
 
         if (!user || !currentTarget) {
@@ -25,19 +25,6 @@ function getChatId(user1, user2) {
         socket.onopen = () => {
             log("Connected to private chat.");
             document.getElementById("msgInput").disabled = false;
-
-            // ✅ Mark messages from currentTarget as seen
-            markMessagesAsSeen(currentTarget, user);
-
-            // ✅ Send onScreen presence
-            const chatId = getChatId(user, currentTarget);
-
-            console.log("chat id : : " + chatId);
-
-            socket.send(JSON.stringify({
-                type: "joinChatScreen",
-                chatId: chatId
-            }));
         };
 
 
@@ -47,7 +34,7 @@ function getChatId(user1, user2) {
 
 
             // ✅ Mark messages from currentTarget as seen
-            markMessagesAsSeen(currentTarget, user);
+//            markMessagesAsSeen(currentTarget, user);
         };
 
         socket.onmessage = (event) => {
@@ -88,21 +75,26 @@ function getChatId(user1, user2) {
 
         socket.onclose = () => log("Connection closed.");
 
-        // ⬇️ NEW: Load previous chat history from API
-        fetch(`http://localhost:8080/api/chat-history?sender=${user}&receiver=${currentTarget}`)
-            .then(response => response.json())
-            .then(data => {
-                if (!messageStore[currentTarget]) {
-                    messageStore[currentTarget] = [];
-                }
+const conversationId = localStorage.getItem("conversationId");
 
-                data.forEach(msg => {
-                    const isYou = msg.senderUUID === user;
-                    messageStore[currentTarget].push({from: msg.senderUUID, msg: msg.message});
-                    log(`${isYou ? "You" : "Received"}: ${msg.message}`, isYou ? "you" : "other", msg.status);
-                });
-            })
-            .catch(err => console.error("Failed to load chat history:", err));
+if (!messageStore[currentTarget]) {
+    messageStore[currentTarget] = [];
+}
+
+const historyUrl = conversationId
+    ? `http://localhost:8080/api/chat-history?conversationId=${conversationId}`
+    : `http://localhost:8080/api/chat-history?sender=${user}&receiver=${currentTarget}`;
+
+fetch(historyUrl)
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(msg => {
+            const isYou = msg.senderUUID === user;
+            messageStore[currentTarget].push({ from: msg.senderUUID, msg: msg.message });
+            log(`${isYou ? "You" : "Received"}: ${msg.message}`, isYou ? "you" : "other", msg.status);
+        });
+    })
+    .catch(err => console.error("Failed to load chat history:", err));
 
         // ⬇️ Typing input listener
         const inputBox = document.getElementById("msgInput");
@@ -189,18 +181,32 @@ function getChatId(user1, user2) {
         }
     }
 
-    function updateMessageStatus(messageText, newStatus) {
+  /*  function updateMessageStatus(messageText, newStatus) {
         const currentTarget = localStorage.getItem("target");
 
         const chat = messageStore[currentTarget] || [];
 
         for (let msg of chat) {
             // You can match on message text for now — or use message ID if available
-//            if (msg.msg === messageText && msg.status !== newStatus) {
+            if (msg.msg === messageText && msg.status !== newStatus) {
                 msg.status = newStatus;
                 break;
-//            }
+            }
         }
+        reloadMessages(); // re-render chat messages
+    }*/
+
+    function updateMessageStatus(newStatus) {
+        const currentTarget = localStorage.getItem("target");
+        const chat = messageStore[currentTarget] || [];
+
+        if (chat.length > 0) {
+            const lastMessage = chat[chat.length - 1];
+            if (lastMessage.status !== newStatus) {
+                lastMessage.status = newStatus;
+            }
+        }
+
         reloadMessages(); // re-render chat messages
     }
 
@@ -221,7 +227,7 @@ function getChatId(user1, user2) {
 
 
 
-    function markMessagesAsSeen(sender, receiver) {
+ /*   function markMessagesAsSeen(sender, receiver) {
         fetch(`http://localhost:8080/api/mark-seen?sender=${sender}&receiver=${receiver}`, {
             method: 'POST'
         })
@@ -235,7 +241,7 @@ function getChatId(user1, user2) {
             .catch(err => {
                 console.error("❌ Fetch error while marking seen:", err);
             });
-    }
+    }*/
 
 
 
@@ -247,11 +253,11 @@ function getChatId(user1, user2) {
         const currentTarget = localStorage.getItem("target");
         const chatId = getChatId(user, currentTarget);
 
-        if (socket && socket.readyState === WebSocket.OPEN) {
+       /* if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({
                 type: "leaveChatScreen",
                 chatId: chatId
             }));
-        }
+        }*/
     };
 

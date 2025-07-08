@@ -1,6 +1,7 @@
 package com.peertopeer.service.impl;
 
 import com.peertopeer.service.PresenceService;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,19 +15,25 @@ import java.util.stream.Collectors;
 public class PresenceServiceImpl implements PresenceService {
 
     private final RedisTemplate<String, String> redis;
+//    private final RedisTemplate<String, Object> redisTemplate;
 
     public static final String ONLINE_USERS_KEY = "online_users";
 
+    @PreDestroy
+    public void clearRedisCache() {
+        try {
+            System.out.println("Clearing Redis cache before shutdown...");
+            redis.getConnectionFactory().getConnection().flushDb();
+        } catch (Exception e) {
+            System.err.println("Failed to clear Redis cache during shutdown: " + e.getMessage());
+        }
+    }
 
     @Override
     public void markOnline(String userId) {
         redis.opsForSet().add(ONLINE_USERS_KEY, userId);
     }
 
-    @Override
-    public void markOffline(String userId) {
-        redis.opsForSet().remove(ONLINE_USERS_KEY, userId);
-    }
 
     @Override
     public boolean isOnline(String userId) {
@@ -34,10 +41,21 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     @Override
+    public void markOffline(String userId) {
+        try {
+            if (redis.getConnectionFactory() != null) {
+                redis.opsForSet().remove("online-users", userId);
+            }
+        } catch (IllegalStateException e) {
+
+            System.err.println("Skipping Redis call during shutdown: " + e.getMessage());
+        }
+    }
+
+    @Override
     public Set<String> getOnlineUsers() {
         return redis.opsForSet().members(ONLINE_USERS_KEY);
     }
-
 
 
     /// ///////////////////////////

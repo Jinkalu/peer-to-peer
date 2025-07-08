@@ -1,52 +1,56 @@
-  (async function () {
-    const currentUser = localStorage.getItem("user");
+(async function () {
+  const currentUser = localStorage.getItem("username"); // was "user"
+  const currentUserId = localStorage.getItem("userId"); // was "currentUserId"
 
-    if (!currentUser) {
-      alert("No user found in localStorage. Please log in.");
-      return;
+  if (!currentUser || !currentUserId) {
+    alert("No user found in localStorage. Please log in.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`http://localhost:8080/api/v1/user/${currentUserId}`);
+    if (!res.ok) {
+      throw new Error("Failed to fetch user list");
     }
 
-    try {
-      const res = await fetch("http://localhost:8080/api/users");
-      if (!res.ok) {
-        throw new Error("Failed to fetch user list");
-      }
+    const userList = await res.json();
+    const statusMap = {};
+    const userListElement = document.getElementById("userList");
 
-      const userList = await res.json();
-      const statusMap = {};
+    userList.forEach(targetUser => {
+      if (targetUser.username === currentUser) return; // Skip self
 
-      const userListElement = document.getElementById("userList");
+      const li = document.createElement("li");
+      li.textContent = targetUser.username;
+      li.id = `user-${targetUser.username}`;
+      li.className = "offline";
 
-      userList.forEach(targetUser => {
-        if (targetUser === currentUser) return;
+      li.onclick = () => {
+        localStorage.setItem("target", targetUser.username);
+        localStorage.setItem("targetUserId", targetUser.id);
+        localStorage.setItem("conversationId", targetUser.conversation || "");
 
-        const li = document.createElement("li");
-        li.textContent = targetUser;
-        li.id = `user-${targetUser}`;
-        li.className = "offline";
+        window.location.href = "/private"; // or "/chat"
+      };
 
-        li.onclick = () => {
-          localStorage.setItem("target", targetUser);
-          window.location.href = "/private";
-        };
+      userListElement.appendChild(li);
 
-        userListElement.appendChild(li);
+      const subSocket = new WebSocket(
+        `ws://localhost:8080/presence?type=subscribe&target=${targetUser.username}&user=${currentUser}`
+      );
 
-        const subSocket = new WebSocket(
-                `ws://localhost:8080/presence?type=subscribe&target=${targetUser}&user=${currentUser}`
-        );
-        statusMap[targetUser] = subSocket;
+      statusMap[targetUser.username] = subSocket;
 
-        subSocket.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          const liElement = document.getElementById(`user-${data.user}`);
-          if (liElement) {
-            liElement.className = data.online ? "online" : "offline";
-          }
-        };
-      });
-    } catch (error) {
-      console.error("Error loading user list:", error);
-      alert("Unable to load user list.");
-    }
-  })();
+      subSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const liElement = document.getElementById(`user-${data.user}`);
+        if (liElement) {
+          liElement.className = data.online ? "online" : "offline";
+        }
+      };
+    });
+  } catch (error) {
+    console.error("Error loading user list:", error);
+    alert("Unable to load user list.");
+  }
+})();

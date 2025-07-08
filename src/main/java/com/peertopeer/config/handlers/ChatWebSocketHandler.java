@@ -1,35 +1,25 @@
 package com.peertopeer.config.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.peertopeer.entity.Conversations;
-import com.peertopeer.entity.Message;
-import com.peertopeer.entity.UserConversation;
-import com.peertopeer.enums.ConversationStatus;
-import com.peertopeer.enums.ConversationType;
 import com.peertopeer.enums.MessageStatus;
-import com.peertopeer.enums.SourceType;
-import com.peertopeer.repository.ConversationsRepository;
-import com.peertopeer.repository.MessageRepository;
-import com.peertopeer.repository.UserConversationRepository;
+import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
-import com.peertopeer.vo.ChatUserVO;
-import com.peertopeer.vo.ConversationVO;
-import com.peertopeer.vo.MessageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.thymeleaf.util.StringUtils;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
+import static com.peertopeer.utils.PeerUtils.getMessageStatus;
 import static com.peertopeer.utils.PeerUtils.getParam;
 
 @Component
@@ -37,20 +27,20 @@ import static com.peertopeer.utils.PeerUtils.getParam;
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final Map<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
+
     private final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> chatScreenPresence = new ConcurrentHashMap<>();
 
-
-    private final ConversationsRepository conversationsRepository;
-    private final MessageRepository messageRepository;
-    private final UserConversationRepository userConversationRepository;
+//    private final Map<String,>
 
     private final PresenceService presenceService;
 
+    private final ChatService chatService;
+
+
     @Async
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        String user = getParam(session, "user");
+    public void afterConnectionEstablished(WebSocketSession session) throws IOException {
+        String user = getParam(session, "sender");
         userSessions.put(user, session);
 
         String type = getParam(session, "type");
@@ -58,6 +48,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             String room = getParam(session, "target");
             roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
             session.getAttributes().put("room", room);
+        }
+
+        if ("private".equals(type)) {
+            String target = getParam(session, "receiver");
+            if (!StringUtils.isEmpty(target)) {
+                Long conversationId = chatService.create(user, target);
+                session.sendMessage(new TextMessage("conversationId:" + conversationId));
+            }
         }
 
         session.getAttributes().put("user", user);
@@ -70,13 +68,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Map<String, String> payload = new ObjectMapper().readValue(message.getPayload(), Map.class);
         String type = (String) session.getAttributes().get("type");
 
-/*        if ("joinChatScreen".equals(payload.get("type"))) {
-            joinChatScreen(session, payload.get("chatId"), (String) session.getAttributes().get("user"));
-            return;
-        } else if ("leaveChatScreen".equals(payload.get("type"))) {
-            leaveChatScreen(payload.get("chatId"), (String) session.getAttributes().get("user"));
-            return;
-        }*/
 
         if ("typing".equals(payload.get("type"))) {
             handleTypingStatus(session, payload);
@@ -90,13 +81,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void joinChatScreen(WebSocketSession session, String chatId, String userId) {
-        chatScreenPresence.computeIfAbsent(chatId, k -> ConcurrentHashMap.newKeySet()).add(userId);
-    }
-
-    private void leaveChatScreen(String chatId, String userId) {
-        chatScreenPresence.getOrDefault(chatId, Set.of()).remove(userId);
-    }
 
 
     @Async
@@ -148,9 +132,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
 
-
-
-
     private void groupMsg(WebSocketSession session, Map<String, String> payload) throws IOException {
         String room = (String) session.getAttributes().get("room");
         String user = getParam(session, "user");
@@ -164,156 +145,55 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
 
-
-
-
     private void privateMsg(WebSocketSession session, Map<String, String> payload) throws IOException {
-        String toUser = payload.get("to");
-        String fromUser = (String) session.getAttributes().get("user");
-//        MessageStatus status = MessageStatus.valueOf(payload.get("status"));
-        WebSocketSession peerSession = userSessions.get(toUser);
-        boolean isOnline = peerSession != null && peerSession.isOpen();
+
+        String receiver = payload.get("receiver");
+        String sender = getParam(session, "sender");
+        String conversationId = getParam(session, "conversationId");
+
+        WebSocketSession peerSession = getUserSession(receiver);
+
+        boolean isOnScreen = peerSession != null && peerSession.isOpen();
+        boolean online = presenceService.isOnline(receiver);
+
+        MessageStatus status = getMessageStatus(online, isOnScreen);
 
         String msg = payload.get("msg");
-        if (isOnline) {
+        String messageId = String.valueOf(chatService.saveMessage(conversationId, sender, msg, status));
+
+        if (online && isOnScreen) {
             Map<String, String> response = Map.of(
-                    "from", fromUser,
-                    "msg", msg
+                    "conversationId", conversationId,
+                    "sender", sender,
+                    "receiver", receiver,
+                    "msg", msg,
+                    "msgId", messageId
             );
             peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
-
-            // ✅ Send delivered status to sender
-            Map<String, Object> deliveredStatus = Map.of(
-                    "type", "status",
-                    "status", MessageStatus.SEND,
-                    "to", toUser,
-                    "msg", msg
-                    // Optionally include messageId if available
-            );
-            WebSocketSession senderSession = userSessions.get(fromUser);
-            if (senderSession != null && senderSession.isOpen()) {
-                senderSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(deliveredStatus)));
-            }
         }
-        createConversation(fromUser, toUser, msg, null, null, ConversationType.PRIVATE,
-                SourceType.PRIVATE, false, MessageStatus.SEND);
+        // ✅ Send delivered status to sender
+        sendStatus(status, sender, messageId, conversationId);
     }
 
 
-    @Async("taskExecutor")
-    public void createConversation(String senderUUID, String receiverUUID, String message,
-                                   List<MultipartFile> medias, Integer sourceId, ConversationType conversationType,
-                                   SourceType sourceType, Boolean isStory, MessageStatus status) {
-        Long conversationId = conversationsRepository.findConversationIdReceiverUUIDAndSenderUUID(receiverUUID, senderUUID);
-        Conversations conversation;
-        if (Objects.isNull(conversationId) || conversationId == 0L) {
-            conversation = conversationsRepository.save(Conversations.builder()
-                    .type(conversationType)
-                    .isPinned(false)
-                    .status(ConversationStatus.ACTIVE)
-                    .readStatus(false)
-                    .build());
-            saveMessages(senderUUID, receiverUUID, message, medias, conversation, sourceId, sourceType, status);
-            saveToUserConversation(senderUUID, receiverUUID, conversation);
-        } else {
-            conversation = getConversation(conversationId);
-            conversation.setUpdatedAt(Instant.now().toEpochMilli());
-            saveMessages(senderUUID, receiverUUID, message, medias, conversation, sourceId, sourceType, status);
-        }
-
-    }
-
-    private Conversations getConversation(Long conversationId) {
-        return conversationsRepository.findById(conversationId)
-                .orElseThrow(/*() -> new ValidationException(ApiError.builder()
-                        .errors(List.of("Invalid conversation id"))
-                        .status(HttpStatus.BAD_REQUEST.name())
-                        .code(String.valueOf(HttpStatus.BAD_REQUEST.value()))
-                        .httpStatus(HttpStatus.BAD_REQUEST)
-                        .build())*/);
-
-    }
-
-    private ConversationVO getConversationVO(Conversations conversation, ChatUserVO userVo, Boolean isMessage) {
-        return ConversationVO.builder()
-                .id(conversation.getId())
-                .conversationName(userVo.getUserName())
-                .type(conversation.getType())
-                .status(conversation.getStatus())
-                .readStatus(conversation.getReadStatus())
-                .isPined(conversation.getIsPinned())
-                .messages(isMessage ? mapMessageVO(conversation.getMessages()) : new ArrayList<>())
-                .receiverDetails(userVo)
-                .createdAt(conversation.getCreatedAt())
-                .updatedAt(conversation.getUpdatedAt())
-                .build();
-    }
-
-
-    private void saveMessages(String senderUUID, String receiverUUID, String message,
-                              List<MultipartFile> medias, Conversations conversation,
-                              Integer sourceId, SourceType sourceType, MessageStatus status) {
-        if (!Objects.isNull(medias) && !medias.get(0).isEmpty()) {
-            medias.forEach(media -> messageRepository.save(Message.builder()
-                    .senderUUID(senderUUID)
-                    .receiverUUID(receiverUUID)
-                    .conversation(conversation)
-                    .status(status)
-                    .createdAt(Instant.now().toEpochMilli())
-//                    .updateAt(Instant.now().toEpochMilli())
-                    .message(Objects.requireNonNullElse(message, ""))
-//                  .mediaURL(saveChatMedia(media))
-//                    .sourceId(sourceId)
-                    .sourceType(sourceType)
-                    .build()));
-        } else {
-            messageRepository.save(Message.builder()
-                    .senderUUID(senderUUID)
-                    .receiverUUID(receiverUUID)
-                    .conversation(conversation)
-                    .status(MessageStatus.SEND)
-                    .createdAt(Instant.now().toEpochMilli())
-//                    .updateAt(Instant.now().toEpochMilli())
-//                    .sourceId(sourceId)
-                    .sourceType(sourceType)
-                    .message(Objects.requireNonNullElse(message, ""))
-                    .build());
+    private void sendStatus(MessageStatus status, String fromUser, String msgId,
+                            String conversationId) throws IOException {
+        Map<String, Object> deliveredStatus = Map.of(
+                "conversationId", conversationId,
+                "statusReceiver", fromUser,
+                "msgId", msgId,
+                "type", "status",
+                "status", status
+        );
+        WebSocketSession senderSession = getUserSession(fromUser);
+        if (senderSession != null && senderSession.isOpen()) {
+            senderSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(deliveredStatus)));
         }
     }
 
-    private void saveToUserConversation(String senderUUID, String receiverUUID, Conversations conversation) {
-        userConversationRepository.saveAll(List.of(UserConversation.builder()
-                .conversationId(conversation.getId())
-                .userId(senderUUID)
-                .build(), UserConversation.builder()
-                .conversationId(conversation.getId())
-                .userId(receiverUUID)
-                .build()));
-    }
 
-
-    private List<MessageVO> mapMessageVO(List<Message> messages) {
-        return messages.stream()
-                .map(message -> {
-                    return MessageVO.builder()
-                            .id(message.getId())
-                            .senderUUID(message.getSenderUUID())
-                            .receiverUUID(message.getReceiverUUID())
-                            .status(message.getStatus())
-                            .message(Objects.requireNonNullElse(message.getMessage(), ""))
-                            .mediaURL(Objects.requireNonNullElse(message.getMediaURL(), ""))
-                            .reaction(Objects.requireNonNullElse(message.getReaction(), ""))
-                            .sourceType(message.getSourceType().name())
-//                            .sourceId(message.getSourceType().equals(SourceType.PRIVATE) ? message.getConversation().getId().intValue()
-//                                    : message.getSourceId())
-                            .createdAt(message.getCreatedAt())
-//                            .updateAt(message.getUpdateAt())
-                            .build();
-                }).collect(Collectors.toList());
-    }
-
-    public WebSocketSession getUserSession(String sender) {
-        return userSessions.get(sender);
+    public WebSocketSession getUserSession(String user) {
+        return userSessions.get(user);
     }
 }
 

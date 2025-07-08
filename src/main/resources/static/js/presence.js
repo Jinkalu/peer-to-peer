@@ -1,5 +1,5 @@
 (function () {
-    const currentUser = localStorage.getItem("user");
+    const currentUser = localStorage.getItem("username");
     if (!currentUser) return;
 
     let socket;

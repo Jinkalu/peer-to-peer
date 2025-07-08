@@ -53,32 +53,6 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put("userId", connectedUser);
     }
 
-
-/*    @Async
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String connectedUser = getParam(session, "user");
-        String type = getParam(session, "type");
-        System.out.println("Test : : " + getParam(session, "user"));
-
-        if ("ping".equals(type)) {
-            if (connectedUser != null) {
-                userSessions.put(connectedUser, session);
-                notifyUserStatus(connectedUser, true);
-            }
-        } else if ("subscribe".equals(type)) {
-            String target = getParam(session, "target");
-            if (target != null) {
-                subscribers.computeIfAbsent(target, k -> ConcurrentHashMap.newKeySet()).add(session);
-
-                boolean isOnline = userSessions.containsKey(target) && userSessions.get(target).isOpen();
-                session.sendMessage(new TextMessage(
-                        String.format("{\"user\":\"%s\", \"online\":%s}", target, isOnline)
-                ));
-            }
-        }
-    }*/
-
     @Async
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
@@ -87,27 +61,11 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
             presenceService.markOffline(disconnectedUser);
             notifyUserStatus(disconnectedUser, false);
         }
-
-        // Remove session from all subscription lists
         subscribers.values().forEach(set -> set.remove(session));
     }
 
 
-/*    @Async
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String disconnectedUser = getUserBySession(session);
-        if (disconnectedUser != null) {
-            // Remove from online list
-            userSessions.remove(disconnectedUser);
 
-            // Notify subscribers that user went offline
-            notifyUserStatus(disconnectedUser, false);
-        }
-
-        // Remove session from all subscription lists
-        subscribers.values().forEach(set -> set.remove(session));
-    }*/
 
     private String getUserBySession(WebSocketSession session) {
         Object userId = session.getAttributes().get("userId");
@@ -115,14 +73,6 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
     }
 
 
-/*    private String getUserBySession(WebSocketSession session) {
-        return userSessions.entrySet()
-                .stream()
-                .filter(e -> e.getValue().equals(session))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
-    }*/
 
     private void notifyUserStatus(String user, boolean isOnline) {
         Set<WebSocketSession> subs = subscribers.getOrDefault(user, Set.of());

@@ -4,6 +4,7 @@ import com.peertopeer.entity.Message;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.UserService;
 import com.peertopeer.vo.UserLoginVO;
+import com.peertopeer.vo.UserVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -18,7 +19,6 @@ import java.util.Scanner;
 public class ChatController {
 
     private final ChatService chatService;
-    private final UserService userService;
 
 
     @PostMapping("/api/login")
@@ -26,12 +26,6 @@ public class ChatController {
         return ResponseEntity.ok(10L);
     }
 
-    @ResponseBody
-    @GetMapping("/api/users")
-    public static List<String> listUsers() {
-        return List.of("u1", "u2", "u3", "u4", "u5");
-
-    }
 
     @ResponseBody
     @GetMapping("/api/chat-history")
@@ -39,18 +33,11 @@ public class ChatController {
         return chatService.getChatHistory(sender, receiver);
     }
 
-    @PostMapping("/api/mark-seen")
+  /*  @PostMapping("/api/mark-seen")
     public ResponseEntity<Void> markMessagesSeen(@RequestParam String sender, @RequestParam String receiver) {
         chatService.markMessagesAsSeen(sender, receiver);
         return ResponseEntity.ok().build();
-    }
-
-
-    public static void main(String[] args) {
-
-
-
-    }
+    }*/
 
 
     /// -pages- ///

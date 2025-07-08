@@ -1,24 +1,21 @@
 package com.peertopeer.entity;
 
 
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.enums.SourceType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.Instant;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "messages") // Plural table name convention
+@AllArgsConstructor
+@Table(name = "messages")
 public class Message {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,7 +24,7 @@ public class Message {
     @Column(nullable = false)
     private String senderUUID;
 
-    private String receiverUUID; // Nullable for group chats
+//    private String receiverUUID; // Nullable for group chats
 
     @Column(nullable = false, length = 2000) // Increased length for long messages
     private String message;
@@ -49,8 +46,10 @@ public class Message {
 
     private Long updatedAt;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
+    @ToString.Exclude
     private Conversations conversation;
 
     @PrePersist
@@ -62,4 +61,6 @@ public class Message {
     protected void onUpdate() {
         this.updatedAt = Instant.now().toEpochMilli();
     }
+
+
 }

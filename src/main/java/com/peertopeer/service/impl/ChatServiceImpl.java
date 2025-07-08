@@ -1,23 +1,21 @@
 package com.peertopeer.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.peertopeer.config.handlers.ChatWebSocketHandler;
+import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
+import com.peertopeer.enums.ConversationType;
+import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.MessageRepository;
-import com.peertopeer.repository.UserConversationRepository;
+import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -25,35 +23,41 @@ public class ChatServiceImpl implements ChatService {
 
     private final MessageRepository messageRepository;
 
-    private final UserConversationRepository userConversationRepository;
     private final ConversationsRepository conversationsRepository;
     private final PresenceService presenceService;
+    private final UserRepository userRepository;
+
 
     @Override
     public List<Message> getChatHistory(String sender, String receiver) {
-        return messageRepository.findChatBetween(receiver, sender,
-                PageRequest.of(0, 10)).getContent();
+//        messageRepository.updateStatusByReceiverUUIDAndStatusAndSenderUUID(sender, MessageStatus.SEND, receiver);
+//        return messageRepository.findChatBetween(receiver, sender,
+//                PageRequest.of(0, 10)).getContent();
+        return null;
+    }
+
+
+    @Override
+    public Long create(String user, String target) {
+        Long sender = Long.valueOf(user);
+        Long receiver = Long.valueOf(target);
+        Optional<Long> byUsersIdAndUsersId = conversationsRepository.findByUsers_IdAndUsers_Id(sender, receiver);
+        return byUsersIdAndUsersId.orElseGet(() -> conversationsRepository.saveAndFlush(Conversations.builder()
+                .type(ConversationType.PRIVATE)
+                .users(Set.of(userRepository.findById(sender).get(),
+                        userRepository.findById(receiver).get()))
+                .build()).getId());
+
     }
 
     @Override
-    @Transactional
-    public void markMessagesAsSeen(String sender, String receiver) {
-        messageRepository.markAsSeen(sender, receiver);
-
-        // ✅ Notify sender over WebSocket
-        WebSocketSession senderSession = new ChatWebSocketHandler(conversationsRepository,
-                messageRepository, userConversationRepository, presenceService).getUserSession(sender);
-        if (senderSession != null && senderSession.isOpen()) {
-            Map<String, Object> seenStatus = Map.of(
-                    "type", "status",
-                    "status", "SEEN",
-                    "from", receiver // who read it
-            );
-            try {
-                senderSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(seenStatus)));
-            } catch (IOException e) {
-                System.out.println(e.getMessage());
-            }
-        }
+    @Transactional(rollbackOn = Exception.class)
+    public Long saveMessage(String conversationId, String fromUser, String msg, MessageStatus status) {
+        return messageRepository.saveAndFlush(Message.builder()
+                .message(msg)
+                .conversation(conversationsRepository.findById(Long.valueOf(conversationId)).get())
+                .senderUUID(fromUser)
+                .status(status)
+                .build()).getId();
     }
 }
