@@ -18,17 +18,19 @@
     const userListElement = document.getElementById("userList");
 
     userList.forEach(targetUser => {
-      if (targetUser.username === currentUser) return; // Skip self
+
+       console.log(`targetUser ${targetUser.id} : : currentUserId ${currentUserId}`)
+     if (String(targetUser.id) === String(currentUserId)) return; // Skip self
 
       const li = document.createElement("li");
       li.textContent = targetUser.username;
-      li.id = `user-${targetUser.username}`;
+      li.id = `user-${targetUser.id}`;
       li.className = "offline";
 
       li.onclick = () => {
         localStorage.setItem("target", targetUser.username);
         localStorage.setItem("targetUserId", targetUser.id);
-        localStorage.setItem("conversationId", targetUser.conversation || "");
+        localStorage.setItem("conversationId", targetUser.conversationId || "");
 
         window.location.href = "/private"; // or "/chat"
       };
@@ -36,10 +38,10 @@
       userListElement.appendChild(li);
 
       const subSocket = new WebSocket(
-        `ws://localhost:8080/presence?type=subscribe&target=${targetUser.username}&user=${currentUser}`
+        `ws://localhost:8080/presence?type=subscribe&target=${targetUser.id}&user=${currentUserId}`
       );
 
-      statusMap[targetUser.username] = subSocket;
+      statusMap[targetUser.id] = subSocket;
 
       subSocket.onmessage = (event) => {
         const data = JSON.parse(event.data);

@@ -29,15 +29,9 @@ public class ChatController {
 
     @ResponseBody
     @GetMapping("/api/chat-history")
-    public List<Message> getChatHistory(String sender, String receiver) {
-        return chatService.getChatHistory(sender, receiver);
+    public List<Message> getChatHistory(@RequestParam String conversationId) {
+        return chatService.getChatHistory(conversationId);
     }
-
-  /*  @PostMapping("/api/mark-seen")
-    public ResponseEntity<Void> markMessagesSeen(@RequestParam String sender, @RequestParam String receiver) {
-        chatService.markMessagesAsSeen(sender, receiver);
-        return ResponseEntity.ok().build();
-    }*/
 
 
     /// -pages- ///

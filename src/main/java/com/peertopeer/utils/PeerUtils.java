@@ -10,13 +10,11 @@ import java.util.Optional;
 public class PeerUtils {
 
     public static String getParam(WebSocketSession session, String key) {
-        return Optional.ofNullable(
-                UriComponentsBuilder
-                        .fromUri(Objects.requireNonNull(session.getUri()))
-                        .build()
-                        .getQueryParams()
-                        .getFirst(key)
-        ).orElse("");
+        return UriComponentsBuilder
+                .fromUri(Objects.requireNonNull(session.getUri()))
+                .build()
+                .getQueryParams()
+                .getFirst(key);
     }
 
     public static MessageStatus getMessageStatus(boolean online, boolean isOnline) {
@@ -29,6 +27,10 @@ public class PeerUtils {
             status = MessageStatus.SEND;
         }
         return status;
+    }
+
+    public static boolean isEmpty(String user) {
+        return user == null || user.isBlank();
     }
 
 }

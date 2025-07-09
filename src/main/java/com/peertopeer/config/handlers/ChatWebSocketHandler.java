@@ -19,8 +19,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.peertopeer.utils.PeerUtils.getMessageStatus;
-import static com.peertopeer.utils.PeerUtils.getParam;
+import static com.peertopeer.utils.PeerUtils.*;
 
 @Component
 @RequiredArgsConstructor
@@ -30,39 +29,55 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
 
-//    private final Map<String,>
-
     private final PresenceService presenceService;
 
     private final ChatService chatService;
 
 
-    @Async
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
         String user = getParam(session, "sender");
+        if (isEmpty(user)) {
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+
         userSessions.put(user, session);
 
         String type = getParam(session, "type");
-        if ("group".equals(type)) {
-            String room = getParam(session, "target");
-            roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
-            session.getAttributes().put("room", room);
-        }
 
-        if ("private".equals(type)) {
-            String target = getParam(session, "receiver");
-            if (!StringUtils.isEmpty(target)) {
-                Long conversationId = chatService.create(user, target);
-                session.sendMessage(new TextMessage("conversationId:" + conversationId));
+        if ("group".equalsIgnoreCase(type)) {
+            String room = getParam(session, "target");
+            if (!isEmpty(room)) {
+                roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
+                session.getAttributes().put("room", room);
             }
+        } else if ("private".equalsIgnoreCase(type)) {
+            String receiver = getParam(session, "receiver");
+            if (!isEmpty(receiver)) {
+                Long conversationId = chatService.create(user, receiver);
+                chatService.updateMessageChatStatus(conversationId,user);
+                session.getAttributes().put("conversationId", conversationId);
+                session.sendMessage(new TextMessage("conversationId:" + conversationId));
+            } else {
+                String cid = getParam(session, "conversationId");
+                if (!isEmpty(cid)) {
+                    long value = Long.parseLong(cid);
+                    chatService.updateMessageChatStatus(value,user);
+                    session.getAttributes().put("conversationId", value);
+                }
+            }
+
         }
 
         session.getAttributes().put("user", user);
         session.getAttributes().put("type", type);
     }
 
-    @Async
+
+
+
+
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         Map<String, String> payload = new ObjectMapper().readValue(message.getPayload(), Map.class);
@@ -82,7 +97,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
 
-
     @Async
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
@@ -100,7 +114,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleTypingStatus(WebSocketSession session, Map<String, String> payload) throws IOException {
-        String fromUser = (String) session.getAttributes().get("user");
+        String fromUser = getParam(session,"sender");
         String toUser = payload.get("to");
 
 
@@ -154,6 +168,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         WebSocketSession peerSession = getUserSession(receiver);
 
         boolean isOnScreen = peerSession != null && peerSession.isOpen();
+        presenceService.setOnScreen(conversationId,receiver);
         boolean online = presenceService.isOnline(receiver);
 
         MessageStatus status = getMessageStatus(online, isOnScreen);

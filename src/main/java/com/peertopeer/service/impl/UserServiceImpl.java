@@ -27,13 +27,11 @@ public class UserServiceImpl implements UserService {
     public List<UserVO> userList(Long currentUserId) {
         return userRepository.findAll()
                 .stream().map(users -> {
-//                    Optional<UserConversation> byUserIdAndUserId = userConversationRepository.findByUser_IdAndUser_Id(users.getId(), currentUserId);
+                    Optional<Long> byUsersIdAndUsersId = conversationsRepository.findByUsers_IdAndUsers_Id(currentUserId, users.getId());
                     return UserVO.builder()
                             .id(users.getId())
                             .username(users.getUsername())
-                           /* .conversationId(byUserIdAndUserId
-                                    .map(userConversation -> userConversation.getConversation().getId())
-                                    .orElse(null))*/
+                            .conversationId(byUsersIdAndUsersId.orElse(null))
                             .build();
                 }).toList();
     }

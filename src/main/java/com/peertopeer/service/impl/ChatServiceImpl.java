@@ -1,5 +1,6 @@
 package com.peertopeer.service.impl;
 
+import com.peertopeer.config.handlers.ChatWebSocketHandler;
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
 import com.peertopeer.enums.ConversationType;
@@ -19,21 +20,17 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-public class ChatServiceImpl implements ChatService {
+public  class ChatServiceImpl implements ChatService {
 
     private final MessageRepository messageRepository;
-
     private final ConversationsRepository conversationsRepository;
-    private final PresenceService presenceService;
     private final UserRepository userRepository;
 
 
     @Override
-    public List<Message> getChatHistory(String sender, String receiver) {
-//        messageRepository.updateStatusByReceiverUUIDAndStatusAndSenderUUID(sender, MessageStatus.SEND, receiver);
-//        return messageRepository.findChatBetween(receiver, sender,
-//                PageRequest.of(0, 10)).getContent();
-        return null;
+    public List<Message> getChatHistory(String conversationId) {
+        return messageRepository.findByConversation_Id(Long.valueOf(conversationId));
+
     }
 
 
@@ -60,4 +57,16 @@ public class ChatServiceImpl implements ChatService {
                 .status(status)
                 .build()).getId();
     }
+
+    @Override
+    public void updateMessageStatus(String userId) {
+        messageRepository.updateStatusBySenderUUIDAndStatus(MessageStatus.DELIVERED.name(), Long.valueOf(userId), MessageStatus.SEND.name());
+    }
+
+    @Override
+    public void updateMessageChatStatus(long convoId, String user) {
+        messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN,convoId,user,MessageStatus.DELIVERED);
+    }
+
+
 }

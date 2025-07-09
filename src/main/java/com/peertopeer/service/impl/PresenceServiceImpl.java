@@ -1,5 +1,6 @@
 package com.peertopeer.service.impl;
 
+import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +8,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -15,9 +18,11 @@ import java.util.stream.Collectors;
 public class PresenceServiceImpl implements PresenceService {
 
     private final RedisTemplate<String, String> redis;
-//    private final RedisTemplate<String, Object> redisTemplate;
+
+    private final ChatService chatService;
 
     public static final String ONLINE_USERS_KEY = "online_users";
+
 
     @PreDestroy
     public void clearRedisCache() {
@@ -32,6 +37,7 @@ public class PresenceServiceImpl implements PresenceService {
     @Override
     public void markOnline(String userId) {
         redis.opsForSet().add(ONLINE_USERS_KEY, userId);
+        chatService.updateMessageStatus(userId);
     }
 
 
@@ -44,7 +50,7 @@ public class PresenceServiceImpl implements PresenceService {
     public void markOffline(String userId) {
         try {
             if (redis.getConnectionFactory() != null) {
-                redis.opsForSet().remove("online-users", userId);
+                redis.opsForSet().remove(ONLINE_USERS_KEY, userId);
             }
         } catch (IllegalStateException e) {
 
@@ -56,9 +62,6 @@ public class PresenceServiceImpl implements PresenceService {
     public Set<String> getOnlineUsers() {
         return redis.opsForSet().members(ONLINE_USERS_KEY);
     }
-
-
-    /// ///////////////////////////
 
 
     @Override
@@ -87,4 +90,16 @@ public class PresenceServiceImpl implements PresenceService {
                 .map(k -> k.substring(k.lastIndexOf(":") + 1)) // extract userId
                 .collect(Collectors.toSet());
     }
+
+    @Override
+    public void setOnScreen(String conversationId, String userId) {
+        redis.opsForValue().set(onScreenKey(userId), conversationId, Duration.ofSeconds(30));
+
+    }
+
+    private String onScreenKey(String userId) {
+        return "on_screen:" + userId;
+    }
+
+
 }

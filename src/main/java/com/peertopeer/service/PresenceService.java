@@ -19,4 +19,6 @@ public interface PresenceService {
     void clearTyping(String chatId, String userId);
 
     Set<String> getTypingUsers(String chatId);
+
+    void setOnScreen(String conversationId, String receiver);
 }
