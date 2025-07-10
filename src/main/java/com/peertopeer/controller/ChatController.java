@@ -15,10 +15,15 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    @ResponseBody
     @GetMapping("/chat-history")
     public List<Message> getChatHistory(@RequestParam String conversationId) {
         return chatService.getChatHistory(conversationId);
+    }
+
+
+    @GetMapping("/chat-history")
+    public List<Message> createGroup(@RequestParam String conversationId) {
+        return chatService.createGroup(conversationId);
     }
 
 }

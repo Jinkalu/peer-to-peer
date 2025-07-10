@@ -20,4 +20,6 @@ public interface ChatService {
 
 
     void updateMessageChatStatus(long value, String user);
+
+    List<Message> createGroup(String conversationId);
 }

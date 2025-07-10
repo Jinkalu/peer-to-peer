@@ -66,7 +66,6 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
 
 
 
-
     private String getUserBySession(WebSocketSession session) {
         Object userId = session.getAttributes().get("userId");
         return userId != null ? userId.toString() : null;

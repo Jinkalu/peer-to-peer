@@ -68,5 +68,11 @@ public  class ChatServiceImpl implements ChatService {
         messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN,convoId,user,MessageStatus.DELIVERED);
     }
 
+    @Override
+    public List<Message> createGroup(String userId) {
+
+        return List.of();
+    }
+
 
 }

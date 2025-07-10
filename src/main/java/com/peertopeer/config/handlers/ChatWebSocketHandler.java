@@ -75,6 +75,42 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put("user", user);
     }
 
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        Map<String, String> payload = new ObjectMapper().readValue(message.getPayload(), Map.class);
+        String type = (String) session.getAttributes().get("type");
+
+
+        if ("typing".equals(payload.get("type"))) {
+            handleTypingStatus(session, payload);
+            return;
+        }
+
+        if ("group".equals(type)) {
+            groupMsg(session, payload);
+        } else if ("private".equals(type)) {
+            privateMsg(session, payload);
+        }
+    }
+
+    @Async
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        String user = (String) session.getAttributes().get("user");
+        Long conversationId = (Long) session.getAttributes().get("conversationId");
+        presenceService.offScreen(user, String.valueOf(conversationId));
+        userSessions.remove(user);
+
+        String room = (String) session.getAttributes().get("room");
+        if (room != null) {
+            Set<WebSocketSession> sessions = roomSessions.get(room);
+            if (sessions != null) {
+                sessions.remove(session);
+                if (sessions.isEmpty()) roomSessions.remove(room);
+            }
+        }
+    }
+
     private String privateConnect(WebSocketSession session, String user) throws IOException {
         String conversationId;
         String receiver = getParam(session, "receiver");
@@ -107,44 +143,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     "receiver", receiver
             );
             peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
-        }
-    }
-
-
-    @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        Map<String, String> payload = new ObjectMapper().readValue(message.getPayload(), Map.class);
-        String type = (String) session.getAttributes().get("type");
-
-
-        if ("typing".equals(payload.get("type"))) {
-            handleTypingStatus(session, payload);
-            return;
-        }
-
-        if ("group".equals(type)) {
-            groupMsg(session, payload);
-        } else if ("private".equals(type)) {
-            privateMsg(session, payload);
-        }
-    }
-
-
-    @Async
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String user = (String) session.getAttributes().get("user");
-        Long conversationId = (Long) session.getAttributes().get("conversationId");
-        presenceService.offScreen(user, String.valueOf(conversationId));
-        userSessions.remove(user);
-
-        String room = (String) session.getAttributes().get("room");
-        if (room != null) {
-            Set<WebSocketSession> sessions = roomSessions.get(room);
-            if (sessions != null) {
-                sessions.remove(session);
-                if (sessions.isEmpty()) roomSessions.remove(room);
-            }
         }
     }
 

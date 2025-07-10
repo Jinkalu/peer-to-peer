@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 @RequiredArgsConstructor
 public class ChatScreenController {
 
-
-
     @GetMapping("/user-list")
     public String userList() {
         return "user-list";
