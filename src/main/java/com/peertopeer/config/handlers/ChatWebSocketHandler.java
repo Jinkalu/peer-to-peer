@@ -1,6 +1,5 @@
 package com.peertopeer.config.handlers;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.ChatService;
@@ -41,7 +40,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA);
             return;
         }
-
         userSessions.put(user, session);
 
         String type = getParam(session, "type");
@@ -55,23 +53,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 session.getAttributes().put("room", room);
             }
         } else if ("private".equalsIgnoreCase(type)) {
-            String receiver = getParam(session, "receiver");
-            if (!isEmpty(receiver)) {
-                conversationId = String.valueOf(chatService.create(user, receiver));
-                chatService.updateMessageChatStatus(Long.parseLong(conversationId), user);
-                session.getAttributes().put("conversationId", conversationId);
-                session.sendMessage(new TextMessage("conversationId:" + conversationId));
-            } else {
-                String cid = getParam(session, "conversationId");
-                if (!isEmpty(cid)) {
-                    conversationId = cid;
-                    long value = Long.parseLong(cid);
-                    chatService.updateMessageChatStatus(value, user);
-                    session.getAttributes().put("conversationId", value);
-                } else {
-                    conversationId = null;
-                }
-            }
+            conversationId = privateConnect(session, user);
         } else {
             conversationId = null;
         }
@@ -90,6 +72,28 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     });
         }
         session.getAttributes().put("user", user);
+    }
+
+    private String privateConnect(WebSocketSession session, String user) throws IOException {
+        String conversationId;
+        String receiver = getParam(session, "receiver");
+        if (!isEmpty(receiver)) {
+            conversationId = String.valueOf(chatService.create(user, receiver));
+            chatService.updateMessageChatStatus(Long.parseLong(conversationId), user);
+            session.getAttributes().put("conversationId", conversationId);
+            session.sendMessage(new TextMessage("conversationId:" + conversationId));
+        } else {
+            String cid = getParam(session, "conversationId");
+            if (!isEmpty(cid)) {
+                conversationId = cid;
+                long value = Long.parseLong(cid);
+                chatService.updateMessageChatStatus(value, user);
+                session.getAttributes().put("conversationId", value);
+            } else {
+                conversationId = null;
+            }
+        }
+        return conversationId;
     }
 
     private void reloadMessages(String conversationId, String receiver) throws IOException {
@@ -197,8 +201,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         WebSocketSession peerSession = getUserSession(receiver);
 
-
-//        boolean isOnScreen = peerSession != null && peerSession.isOpen();
         boolean isOnScreen = presenceService.isOnScreen(receiver, conversationId);
         boolean online = presenceService.isOnline(receiver);
 
