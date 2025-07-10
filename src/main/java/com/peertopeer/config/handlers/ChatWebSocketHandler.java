@@ -49,7 +49,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             conversationId = null;
             String room = getParam(session, "target");
             if (!isEmpty(room)) {
-                roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
+                roomSessions.computeIfAbsent(room,
+                        r -> ConcurrentHashMap.newKeySet()).add(session);
                 session.getAttributes().put("room", room);
             }
         } else if ("private".equalsIgnoreCase(type)) {
@@ -97,11 +98,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void reloadMessages(String conversationId, String receiver) throws IOException {
-        System.out.println("reloadMessages.......!");
+
         if (presenceService.isOnline(receiver) && presenceService.isOnScreen(receiver, conversationId)) {
             WebSocketSession peerSession = getUserSession(receiver);
             Map<String, String> response = Map.of(
-                    "type","reload",
+                    "type", "reload",
                     "conversationId", conversationId,
                     "receiver", receiver
             );
@@ -147,7 +148,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void handleTypingStatus(WebSocketSession session, Map<String, String> payload) throws IOException {
+    private void handleTypingStatus(WebSocketSession session,
+                                    Map<String, String> payload) throws IOException {
         String fromUser = getParam(session, "sender");
         String toUser = payload.get("to");
 
@@ -222,7 +224,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         // ✅ Send delivered status to sender
         sendStatus(status, sender, messageId, conversationId);
     }
-
 
     private void sendStatus(MessageStatus status, String fromUser, String msgId,
                             String conversationId) throws IOException {
