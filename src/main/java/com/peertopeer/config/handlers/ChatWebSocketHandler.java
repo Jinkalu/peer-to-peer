@@ -1,10 +1,10 @@
 package com.peertopeer.config.handlers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -12,12 +12,10 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import org.thymeleaf.util.StringUtils;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -47,9 +45,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         userSessions.put(user, session);
 
         String type = getParam(session, "type");
-        String conversationId = null;
+        String conversationId;
 
         if ("group".equalsIgnoreCase(type)) {
+            conversationId = null;
             String room = getParam(session, "target");
             if (!isEmpty(room)) {
                 roomSessions.computeIfAbsent(room, r -> ConcurrentHashMap.newKeySet()).add(session);
@@ -69,20 +68,41 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     long value = Long.parseLong(cid);
                     chatService.updateMessageChatStatus(value, user);
                     session.getAttributes().put("conversationId", value);
+                } else {
+                    conversationId = null;
                 }
             }
+        } else {
+            conversationId = null;
         }
 
         // Mark the user as "on-screen" after setting the conversation ID
         if (conversationId != null) {
             presenceService.setOnScreen(conversationId, user);
-            ///  TODO send status update to peer if onScreen
             presenceService.getOnScreenUsers(conversationId).stream().
-                    filter(u -> !u.equals(user)).findFirst();
+                    filter(u -> !u.equals(user))
+                    .findFirst().ifPresent(receiver -> {
+                        try {
+                            reloadMessages(conversationId, receiver);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
-
         session.getAttributes().put("user", user);
-        session.getAttributes().put("type", type);
+    }
+
+    private void reloadMessages(String conversationId, String receiver) throws IOException {
+        System.out.println("reloadMessages.......!");
+        if (presenceService.isOnline(receiver) && presenceService.isOnScreen(receiver, conversationId)) {
+            WebSocketSession peerSession = getUserSession(receiver);
+            Map<String, String> response = Map.of(
+                    "type","reload",
+                    "conversationId", conversationId,
+                    "receiver", receiver
+            );
+            peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
+        }
     }
 
 

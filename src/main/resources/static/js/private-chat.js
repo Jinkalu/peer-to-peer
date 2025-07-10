@@ -76,6 +76,13 @@ const messageStore = {};
             return;
         }
 
+        if(data.type === 'reload'){
+        console.log("reload.....!!!!")
+       messageStore[data.receiver] =[];
+       loadHistory();
+
+        }
+
         // Handle normal message
         if (data.conversationId && data.sender && data.msg) {
              console.log("incomming msg : : ",data);
