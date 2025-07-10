@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import org.thymeleaf.util.StringUtils;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,6 +47,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         userSessions.put(user, session);
 
         String type = getParam(session, "type");
+        String conversationId = null;
 
         if ("group".equalsIgnoreCase(type)) {
             String room = getParam(session, "target");
@@ -55,27 +58,32 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         } else if ("private".equalsIgnoreCase(type)) {
             String receiver = getParam(session, "receiver");
             if (!isEmpty(receiver)) {
-                Long conversationId = chatService.create(user, receiver);
-                chatService.updateMessageChatStatus(conversationId,user);
+                conversationId = String.valueOf(chatService.create(user, receiver));
+                chatService.updateMessageChatStatus(Long.parseLong(conversationId), user);
                 session.getAttributes().put("conversationId", conversationId);
                 session.sendMessage(new TextMessage("conversationId:" + conversationId));
             } else {
                 String cid = getParam(session, "conversationId");
                 if (!isEmpty(cid)) {
+                    conversationId = cid;
                     long value = Long.parseLong(cid);
-                    chatService.updateMessageChatStatus(value,user);
+                    chatService.updateMessageChatStatus(value, user);
                     session.getAttributes().put("conversationId", value);
                 }
             }
+        }
 
+        // Mark the user as "on-screen" after setting the conversation ID
+        if (conversationId != null) {
+            presenceService.setOnScreen(conversationId, user);
+            ///  TODO send status update to peer if onScreen
+            presenceService.getOnScreenUsers(conversationId).stream().
+                    filter(u -> !u.equals(user)).findFirst();
         }
 
         session.getAttributes().put("user", user);
         session.getAttributes().put("type", type);
     }
-
-
-
 
 
     @Override
@@ -101,6 +109,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         String user = (String) session.getAttributes().get("user");
+        Long conversationId = (Long) session.getAttributes().get("conversationId");
+        presenceService.offScreen(user, String.valueOf(conversationId));
         userSessions.remove(user);
 
         String room = (String) session.getAttributes().get("room");
@@ -114,7 +124,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleTypingStatus(WebSocketSession session, Map<String, String> payload) throws IOException {
-        String fromUser = getParam(session,"sender");
+        String fromUser = getParam(session, "sender");
         String toUser = payload.get("to");
 
 
@@ -167,8 +177,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         WebSocketSession peerSession = getUserSession(receiver);
 
-        boolean isOnScreen = peerSession != null && peerSession.isOpen();
-        presenceService.setOnScreen(conversationId,receiver);
+
+//        boolean isOnScreen = peerSession != null && peerSession.isOpen();
+        boolean isOnScreen = presenceService.isOnScreen(receiver, conversationId);
         boolean online = presenceService.isOnline(receiver);
 
         MessageStatus status = getMessageStatus(online, isOnScreen);

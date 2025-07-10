@@ -1,4 +1,9 @@
+server:
+  shutdown: GRACEFUL
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   data:
     redis:
       url: redis://localhost:6379
