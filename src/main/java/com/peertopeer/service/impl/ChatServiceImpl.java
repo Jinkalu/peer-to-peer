@@ -70,7 +70,10 @@ public  class ChatServiceImpl implements ChatService {
 
     @Override
     public List<Message> createGroup(String userId) {
-
+        conversationsRepository.saveAndFlush(Conversations.builder()
+                        .users(Set.of(userRepository.findById(Long.valueOf(userId)).get()))
+                        .conversationName("")
+                .build());
         return List.of();
     }
 

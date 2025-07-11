@@ -1,11 +1,12 @@
 package com.peertopeer.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
+
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 public class PeerUtils {
 
@@ -33,4 +34,39 @@ public class PeerUtils {
         return user == null || user.isBlank();
     }
 
+
+  /*  public <T> T parseAndValidate(String request, Class<T> clazz) {
+        try {
+            if (isEmpty(request)) {
+//                throw buildValidationException(List.of("Request body is empty"));
+                throw new RuntimeException("Body is empty");
+            }
+
+            T dto = new ObjectMapper().readValue(request, clazz);
+            Set<ConstraintViolation<T>> violations = validator.validate(dto);
+
+            if (!violations.isEmpty()) {
+                List<String> errors = new ArrayList<>();
+                for (ConstraintViolation<T> violation : violations) {
+                    errors.add(violation.getMessage());
+                }
+                throw new RuntimeException("Body is empty");
+            }
+            return dto;
+
+        } catch (ValidationException ve) {
+            throw ve;
+        } catch (Exception ex) {
+            throw new RuntimeException("Body is empty");
+        }
+    }*/
+
+  /*  private ValidationException buildValidationException(List<String> errors) {
+        return new ValidationException(ApiError.builder()
+                .status(HttpStatus.BAD_REQUEST.name())
+                .code(String.valueOf(HttpStatus.BAD_REQUEST.value()))
+                .httpStatus(HttpStatus.BAD_REQUEST)
+                .errors(errors)
+                .build());
+    }*/
 }

@@ -21,8 +21,9 @@ public class ChatController {
     }
 
 
-    @GetMapping("/chat-history")
-    public List<Message> createGroup(@RequestParam String conversationId) {
+    @GetMapping("/create-group")
+    public List<Message> createGroup(@RequestBody String requestBody) {
+
         return chatService.createGroup(conversationId);
     }
 
