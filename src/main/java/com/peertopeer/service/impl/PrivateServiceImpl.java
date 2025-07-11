@@ -49,7 +49,6 @@ public  class PrivateServiceImpl implements PrivateChat {
     }
 
 
-
     @Override
     public void privateMsg(WebSocketSession session, Map<String, String> payload) throws IOException {
         String receiver = payload.get("receiver");

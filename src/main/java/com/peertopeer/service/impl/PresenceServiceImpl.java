@@ -165,7 +165,6 @@ public class PresenceServiceImpl implements PresenceService {
         if (isOnline) {
             currentOnlineUsers.add(userId);
         }
-
         return isOnline;
     }
 
