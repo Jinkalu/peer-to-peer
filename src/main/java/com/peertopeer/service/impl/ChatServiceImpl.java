@@ -10,17 +10,20 @@ import com.peertopeer.repository.MessageRepository;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.PresenceService;
+import com.peertopeer.vo.GroupCreationVO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-public  class ChatServiceImpl implements ChatService {
+public class ChatServiceImpl implements ChatService {
 
     private final MessageRepository messageRepository;
     private final ConversationsRepository conversationsRepository;
@@ -65,16 +68,18 @@ public  class ChatServiceImpl implements ChatService {
 
     @Override
     public void updateMessageChatStatus(long convoId, String user) {
-        messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN,convoId,user,MessageStatus.DELIVERED);
+        messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN, convoId, user, MessageStatus.DELIVERED);
     }
 
     @Override
-    public List<Message> createGroup(String userId) {
-        conversationsRepository.saveAndFlush(Conversations.builder()
-                        .users(Set.of(userRepository.findById(Long.valueOf(userId)).get()))
-                        .conversationName("")
+    public Conversations createGroup(GroupCreationVO request) {
+      return conversationsRepository.saveAndFlush(Conversations.builder()
+                .users(!CollectionUtils.isEmpty(request.getUsers()) ?
+                        new HashSet<>(userRepository.findAllById(request.getUsers())) : null)
+                .createdBy(request.getUserId())
+                .conversationName(request.getGroupName())
                 .build());
-        return List.of();
+
     }
 
 

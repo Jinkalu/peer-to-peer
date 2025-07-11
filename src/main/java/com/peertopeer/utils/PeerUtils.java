@@ -34,6 +34,11 @@ public class PeerUtils {
         return user == null || user.isBlank();
     }
 
+    public static String getPrivateChatId(String user1, String user2) {
+        return user1.compareTo(user2) < 0
+                ? user1 + "_" + user2
+                : user2 + "_" + user1;
+    }
 
   /*  public <T> T parseAndValidate(String request, Class<T> clazz) {
         try {

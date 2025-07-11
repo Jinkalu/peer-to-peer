@@ -1,7 +1,9 @@
 package com.peertopeer.service;
 
+import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
 import com.peertopeer.enums.MessageStatus;
+import com.peertopeer.vo.GroupCreationVO;
 
 import java.util.List;
 
@@ -21,5 +23,5 @@ public interface ChatService {
 
     void updateMessageChatStatus(long value, String user);
 
-    List<Message> createGroup(String conversationId);
+    Conversations createGroup(GroupCreationVO conversationId);
 }
