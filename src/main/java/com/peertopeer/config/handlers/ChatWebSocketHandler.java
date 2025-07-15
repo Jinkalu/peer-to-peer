@@ -82,7 +82,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Map<String, String> payload = new ObjectMapper().readValue(message.getPayload(), Map.class);
         String type = getParam(session, "type");
 
-
         if ("typing".equals(payload.get("type"))) {
             statusService.handleTypingStatus(session, payload);
             return;
@@ -93,6 +92,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         } else if ("private".equals(type)) {
             privateChat.privateMsg(session, payload);
         }
+
     }
 
     @Async

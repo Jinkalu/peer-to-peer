@@ -1,14 +1,16 @@
 let socket;
+let presenceSocket; // New: WebSocket for presence tracking
 let typingTimeout;
 let lastTypingState = false;
 let conversationId = null;
+let isReceiverOnline = false; // New: Track receiver's online status
 const messageStore = {};
 
- function connect() {
-    const sender = localStorage.getItem("username"); // Updated to match user list
-    const senderId = localStorage.getItem("userId")
+function connect() {
+    const sender = localStorage.getItem("username");
+    const senderId = localStorage.getItem("userId");
     const receiver = localStorage.getItem("target");
-    const receiverId = localStorage.getItem("targetUserId")
+    const receiverId = localStorage.getItem("targetUserId");
     const existingConversationId = localStorage.getItem("conversationId");
 
     if (!sender || !receiver) {
@@ -18,15 +20,15 @@ const messageStore = {};
 
     document.getElementById("chatInfo").innerText = `You are ${sender}. Chatting with ${receiver}`;
 
-    let url;
+    // Connect to presence tracking for the receiver
+    connectPresenceSocket(receiverId, senderId);
 
+    let url;
     if (existingConversationId && existingConversationId.trim() !== "") {
-        // Use existing conversation
         conversationId = existingConversationId;
         url = `ws://localhost:8080/chat?sender=${senderId}&type=private&conversationId=${existingConversationId}`;
         console.log("✅ Using existing conversation:", existingConversationId);
     } else {
-        // Create new conversation
         url = `ws://localhost:8080/chat?sender=${senderId}&receiver=${receiverId}&type=private`;
         console.log("✅ Creating new conversation with:", receiver);
     }
@@ -37,7 +39,6 @@ const messageStore = {};
         console.log("✅ Connected to private chat");
         document.getElementById("msgInput").disabled = false;
 
-        // Load history immediately if we have an existing conversation
         if (conversationId) {
             loadHistory();
         }
@@ -48,28 +49,24 @@ const messageStore = {};
         if (!data) return;
         console.log({data});
 
-        // Handle conversation ID assignment (only for new conversations)
         if (typeof data === 'string' && data.startsWith("conversationId:")) {
             conversationId = data.split(":")[1];
             localStorage.setItem("conversationId", conversationId);
             console.log("✅ New conversation ID received:", conversationId);
-            // Load history after getting conversation ID (though new convo won't have history)
             loadHistory();
             return;
         }
 
-        // Handle typing status
         if (data.type === "typing") {
             const typingStatus = document.getElementById("typingStatus");
             const receiverUsername = localStorage.getItem("target");
-             const receiverId = localStorage.getItem("targetUserId");
+            const receiverId = localStorage.getItem("targetUserId");
             if (data.from === receiverId) {
                 typingStatus.textContent = data.isTyping === "true" ? `${receiverUsername} is typing...` : "";
             }
             return;
         }
 
-        // Handle message delivery status
         if (data.type === "status") {
             console.log(`msgId : ${data.msgId}  status ${data.status}`);
             updateMessageStatus(data.msgId, data.status);
@@ -77,32 +74,28 @@ const messageStore = {};
         }
 
         if(data.type === 'reload'){
-        console.log("reload.....!!!!")
-       messageStore[data.receiver] =[];
-       loadHistory();
-
+            console.log("reload.....!!!!");
+            messageStore[data.receiver +"_"+localStorage.getItem("conversationId")] = [];
+            loadHistory();
         }
 
-        // Handle normal message
         if (data.conversationId && data.sender && data.msg) {
-             console.log("incomming msg : : ",data);
+            console.log("incoming msg : : ", data);
             const from = data.sender;
             const msg = data.msg;
             const msgId = data.msgId;
 
-            if (!messageStore[receiverId]) {
-                messageStore[receiverId] = [];
+            if (!messageStore[receiverId +"_"+ localStorage.getItem("conversationId")]) {
+                messageStore[receiverId +"_" + localStorage.getItem("conversationId")] = [];
             }
 
-            // Store message with ID for status tracking
-            messageStore[receiverId].push({
+            messageStore[receiverId + "_" + localStorage.getItem("conversationId")].push({
                 from,
                 msg,
                 msgId,
                 status: 'DELIVERED'
             });
 
-            // Clear typing indicator and show message
             document.getElementById("typingStatus").textContent = "";
             log(`Received: ${msg}`, "other");
         }
@@ -120,15 +113,84 @@ const messageStore = {};
     setupTypingListener();
 }
 
+// New: Connect to presence tracking for the receiver
+function connectPresenceSocket(targetUserId, currentUserId) {
+    presenceSocket = new WebSocket(
+        `ws://localhost:8080/presence?type=subscribe&target=${targetUserId}&user=${currentUserId}`
+    );
+
+    presenceSocket.onopen = () => {
+        console.log("✅ Connected to presence tracking for user:", targetUserId);
+    };
+
+    presenceSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("Presence update:", data);
+
+        if (data.user === targetUserId) {
+            isReceiverOnline = data.online;
+            updatePresenceIndicator(data.online);
+
+            // If user comes online, mark pending messages as delivered
+            if (data.online) {
+                markPendingMessagesAsDelivered();
+            }
+        }
+    };
+
+    presenceSocket.onclose = () => {
+        console.warn("Presence socket closed, retrying...");
+        setTimeout(() => connectPresenceSocket(targetUserId, currentUserId), 3000);
+    };
+
+    presenceSocket.onerror = (error) => {
+        console.error("Presence socket error:", error);
+    };
+}
+
+// New: Update presence indicator in UI
+function updatePresenceIndicator(isOnline) {
+    const receiverName = localStorage.getItem("target");
+    const chatInfo = document.getElementById("chatInfo");
+    const onlineStatus = isOnline ? "🟢 Online" : "🔴 Offline";
+
+    chatInfo.innerHTML = `
+        You are ${localStorage.getItem("username")}.
+        Chatting with ${receiverName}
+        <span style="margin-left: 10px; font-size: 0.9em;">${onlineStatus}</span>
+    `;
+}
+
+// New: Mark pending messages as delivered when user comes online
+function markPendingMessagesAsDelivered() {
+    const receiverId = localStorage.getItem("targetUserId");
+    const chat = messageStore[receiverId  +"_"+localStorage.getItem("conversationId")] || [];
+    const currentUserId = localStorage.getItem("userId");
+
+    let hasUpdates = false;
+
+    chat.forEach(message => {
+        // Mark own messages that are only "SEND" as "DELIVERED"
+        if (message.from === currentUserId && message.status === 'SEND') {
+            message.status = 'DELIVERED';
+            hasUpdates = true;
+        }
+    });
+
+    if (hasUpdates) {
+        console.log("✅ Marked pending messages as delivered");
+        reloadMessages();
+    }
+}
+
 function sendMessage() {
     const msgBox = document.getElementById("msgInput");
     const msg = msgBox.value.trim();
     const receiver = localStorage.getItem("targetUserId");
-    const sender = localStorage.getItem("userId"); // Updated to match user list
+    const sender = localStorage.getItem("userId");
 
     if (!receiver || !msg || socket.readyState !== WebSocket.OPEN) return;
 
-    // Send message with required fields based on backend
     const payload = {
         receiver: receiver,
         msg: msg
@@ -136,17 +198,20 @@ function sendMessage() {
 
     socket.send(JSON.stringify(payload));
 
-    // Store message locally (will get msgId from status update)
-    if (!messageStore[receiver]) messageStore[receiver] = [];
+    if (!messageStore[receiver +"_"+localStorage.getItem("conversationId")]) messageStore[receiver +"_"+localStorage.getItem("conversationId")] = [];
+
+    // New: Set initial status based on receiver's online status
+    const initialStatus = isReceiverOnline ? 'DELIVERED' : 'SEND';
+
     const localMessage = {
         from: sender,
         msg,
-        status: 'SEND',
-        msgId: null // Will be updated when we get status
+        status: initialStatus,
+        msgId: null
     };
-    messageStore[receiver].push(localMessage);
+    messageStore[receiver +"_"+localStorage.getItem("conversationId")].push(localMessage);
 
-    log(`You: ${msg}`, "you", "SEND");
+    log(`You: ${msg}`, "you", initialStatus);
     msgBox.value = '';
     sendTypingStatus(false);
 }
@@ -171,7 +236,7 @@ function sendTypingStatus(isTyping) {
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
             type: "typing",
-            to: receiverId, // Use receiver ID
+            to: receiverId,
             isTyping: isTyping.toString()
         }));
     }
@@ -180,10 +245,9 @@ function sendTypingStatus(isTyping) {
 function updateMessageStatus(msgId, newStatus) {
     console.log({msgId, newStatus});
     const currentTarget = localStorage.getItem("targetUserId");
-    const chat = messageStore[currentTarget] || [];
+    const chat = messageStore[currentTarget +"_"+localStorage.getItem("conversationId")] || [];
     console.log({messageStore});
 
-    // Find message by ID or update the last message if no ID match
     let messageFound = false;
     for (let i = chat.length - 1; i >= 0; i--) {
         if (chat[i].msgId === msgId || (!chat[i].msgId && i === chat.length - 1)) {
@@ -204,8 +268,8 @@ function reloadMessages() {
     messages.innerHTML = '';
 
     const currentTarget = localStorage.getItem("targetUserId");
-    const chat = messageStore[currentTarget] || [];
-    const currentUser = localStorage.getItem("userId"); // Updated to match user list
+    const chat = messageStore[currentTarget +"_"+localStorage.getItem("conversationId")] || [];
+    const currentUser = localStorage.getItem("userId");
 
     chat.forEach(m => {
         const isYou = m.from === currentUser;
@@ -231,12 +295,14 @@ function log(message, type = "info", status = null) {
 
 function getStatusIcon(status) {
     switch (status) {
-        case 'SEND': return '✓';
-        case 'DELIVERED': return '✓✓';
+        case 'SEND': return '<span style="color:grey;">✓</span>';
+        case 'DELIVERED': return '<span style="color:grey;">✓✓</span>';
         case 'SEEN': return '<span style="color:blue;">✓✓</span>';
         default: return '';
     }
 }
+
+
 
 function loadHistory() {
     const cid = conversationId || localStorage.getItem("conversationId");
@@ -246,36 +312,53 @@ function loadHistory() {
     }
 
     const url = `http://localhost:8080/api/chat-history?conversationId=${cid}`;
-    const receiver = localStorage.getItem("target");
     const receiverId = localStorage.getItem("targetUserId");
-    const sender = localStorage.getItem("username");
-    const senderId = localStorage.getItem("userId"); // Updated to match user list
+    const senderId = localStorage.getItem("userId");
 
+    // Clear existing chat history for the specific conversation
+    messageStore[receiverId + "_" + cid] = [];
+
+    // Ensure messageStore entry exists
+    if (!messageStore[receiverId + "_" + cid]) {
+        messageStore[receiverId + "_" + cid] = [];
+    }
+
+    // Fetch the new chat history
     fetch(url)
         .then(res => {
             if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
+                console.error(`HTTP error! status: ${res.status}`);
+                return;
             }
             return res.json();
         })
         .then(data => {
-            if (!messageStore[receiverId]) messageStore[receiverId] = [];
-
+            if (!data || data.length === 0) {
+                console.log("No chat history available");
+                return;
+            }
+            document.getElementById("messages").innerHTML = '';
+            // Populate messageStore with new chat history
             data.forEach(msg => {
                 const isYou = msg.senderUUID === senderId;
-                messageStore[receiverId].push({
+                messageStore[receiverId + "_" + cid].push({
                     from: msg.senderUUID,
                     msg: msg.message,
                     status: msg.status,
                     msgId: msg.id
                 });
+
+                // Log the message to the UI
                 log(`${isYou ? "You" : "Received"}: ${msg.message}`, isYou ? "you" : "other", msg.status);
             });
+
+            console.log("history:", messageStore);
         })
         .catch(err => {
             console.error("Chat history fetch failed:", err);
         });
 }
+
 
 function parseJson(raw) {
     try {
@@ -293,6 +376,11 @@ window.onbeforeunload = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
         sendTypingStatus(false);
         socket.close();
+    }
+
+    // New: Close presence socket
+    if (presenceSocket && presenceSocket.readyState === WebSocket.OPEN) {
+        presenceSocket.close();
     }
 };
 
