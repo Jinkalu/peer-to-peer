@@ -1,0 +1,171 @@
+package com.peertopeer.service.impl;
+
+import com.peertopeer.service.ChatService;
+import com.peertopeer.service.PresenceService;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class PresenceServiceImpl implements PresenceService {
+
+    private final RedisTemplate<String, String> redis;
+
+    private final ChatService chatService;
+
+    public static final String ONLINE_USERS_KEY = "online_users";
+    public static final String CONVERSATION_ON_SCREEN = "conversation_on_screen:";
+    private volatile boolean shutdownExecuted = false;
+
+    @PreDestroy
+    public void preDestroy() {
+        executeShutdownCleanup("PreDestroy");
+    }
+
+    @EventListener
+    public void handleShutdown(ContextClosedEvent event) {
+        executeShutdownCleanup("ContextClosedEvent");
+    }
+
+    @PostConstruct
+    public void registerShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            executeShutdownCleanup("ShutdownHook");
+        }));
+    }
+    private synchronized void executeShutdownCleanup(String trigger) {
+        if (shutdownExecuted) {
+            System.out.println("Shutdown cleanup already executed, skipping " + trigger);
+            return;
+        }
+
+        System.out.println("=== Executing shutdown cleanup via " + trigger + " ===");
+        try {
+            // Clear online users key
+            redis.delete(ONLINE_USERS_KEY);
+            System.out.println("Cleared online users key");
+
+            // Clear typing keys - simplified since keys() never returns null
+            Set<String> typingKeys = redis.keys("typing:*");
+            if (!typingKeys.isEmpty()) {
+                redis.delete(typingKeys);
+                System.out.println("Cleared " + typingKeys.size() + " typing keys");
+            } else {
+                System.out.println("No typing keys to clear");
+            }
+
+            // Clear conversation screen keys
+            Set<String> conversationKeys = redis.keys(CONVERSATION_ON_SCREEN + "*");
+            if (!conversationKeys.isEmpty()) {
+                redis.delete(conversationKeys);
+                System.out.println("Cleared " + conversationKeys.size() + " conversation keys");
+            } else {
+                System.out.println("No conversation keys to clear");
+            }
+
+            shutdownExecuted = true;
+            System.out.println("Redis cleanup completed successfully via " + trigger);
+
+        } catch (Exception e) {
+            System.err.println("Failed to clear Redis cache via " + trigger + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    @Override
+    public void markOnline(String userId) {
+        redis.opsForSet().add(ONLINE_USERS_KEY, userId);
+        chatService.updateMessageStatus(userId);
+    }
+
+
+    @Override
+    public boolean isOnline(String userId) {
+        return Boolean.TRUE.equals(redis.opsForSet().isMember(ONLINE_USERS_KEY, userId));
+    }
+
+    @Override
+    public void markOffline(String userId) {
+        try {
+            if (redis.getConnectionFactory() != null) {
+                redis.opsForSet().remove(ONLINE_USERS_KEY, userId);
+            }
+        } catch (IllegalStateException e) {
+
+            System.err.println("Skipping Redis call during shutdown: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Set<String> getOnlineUsers() {
+        return redis.opsForSet().members(ONLINE_USERS_KEY);
+    }
+
+
+    @Override
+    public String key(String chatId, String userId) {
+        return "typing:" + chatId + ":" + userId;
+    }
+
+    @Override
+    public void setTyping(String chatId, String userId) {
+        String key = key(chatId, userId);
+        redis.opsForValue().set(key, "true", Duration.ofSeconds(10)); // auto-expire
+    }
+
+    @Override
+    public void clearTyping(String chatId, String userId) {
+        redis.delete(key(chatId, userId));
+    }
+
+    @Override
+    public Set<String> getTypingUsers(String chatId) {
+        // Need to scan keys: typing:<chatId>:*
+        Set<String> keys = redis.keys("typing:" + chatId + ":*");
+        if (keys == null) return Set.of();
+
+        return keys.stream()
+                .map(k -> k.substring(k.lastIndexOf(":") + 1)) // extract userId
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public void setOnScreen(String conversationId, String userId) {
+        redis.opsForSet().add(conversationKey(conversationId), userId);
+    }
+
+
+    @Override
+    public void offScreen(String userId, String conversationId) {
+        try {
+            if (redis.getConnectionFactory() != null) {
+                redis.opsForSet().remove(conversationKey(conversationId), userId);
+            }
+        } catch (IllegalStateException e) {
+            System.err.println("Skipping Redis call during shutdown: " + e.getMessage());
+        }
+    }
+
+
+    @Override
+    public boolean isOnScreen(String userId, String conversationId) {
+        return Boolean.TRUE.equals(redis.opsForSet().isMember(conversationKey(conversationId), userId));
+    }
+
+
+    private String conversationKey(String conversationId) {
+        return CONVERSATION_ON_SCREEN + conversationId;
+    }
+
+
+}

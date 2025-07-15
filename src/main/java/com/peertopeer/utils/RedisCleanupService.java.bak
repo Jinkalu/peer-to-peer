@@ -1,0 +1,24 @@
+package com.peertopeer.utils;
+
+import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class RedisCleanupService {
+
+
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    @PreDestroy
+    public void clearRedisCache() {
+        try {
+            System.out.println("Clearing Redis cache before shutdown...");
+            redisTemplate.getConnectionFactory().getConnection().flushDb();
+        } catch (Exception e) {
+            System.err.println("Failed to clear Redis cache during shutdown: " + e.getMessage());
+        }
+    }
+}

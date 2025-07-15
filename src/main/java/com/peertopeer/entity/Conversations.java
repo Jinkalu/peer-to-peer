@@ -10,8 +10,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 
 @Data
@@ -25,30 +25,41 @@ public class Conversations {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-//    @Column(nullable = true)
     private String conversationName;
+
+    private Long createdBy;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ConversationType type;
 
     @Enumerated(EnumType.STRING)
-    private ConversationStatus status = ConversationStatus.ACTIVE; // Default
+    private ConversationStatus status;
 
-    private Boolean readStatus = false; // Default
-    private Boolean isPinned = false;   // Default
+    private Boolean readStatus;
+    private Boolean isPinned;
 
     @Column(updatable = false)
     private Long createdAt;
 
     @Version
-    private Long updatedAt; // For optimistic locking
+    private Long updatedAt;
 
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Message> messages = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "conversation_user",
+            joinColumns = @JoinColumn(name = "conversation_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<Users> users = new HashSet<>();
+
 
     @PrePersist
     protected void onCreate() {
+        this.status = ConversationStatus.ACTIVE;
+        this.readStatus = false;
+        this.isPinned = false;
         this.createdAt = Instant.now().toEpochMilli();
     }
 

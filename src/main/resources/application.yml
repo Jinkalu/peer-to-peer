@@ -1,4 +1,9 @@
+server:
+  shutdown: GRACEFUL
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   data:
     redis:
       url: redis://localhost:6379
@@ -16,7 +21,7 @@ spring:
   #    change-log: classpath:db.changelog/db.changelog.yaml
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
