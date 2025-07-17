@@ -62,7 +62,9 @@ public class StatusServiceImpl implements StatusService {
                     "isTyping", payload.get("isTyping")
             );
             String json = new ObjectMapper().writeValueAsString(typingMessage);
-            peerSession.sendMessage(new TextMessage(json));
+            synchronized (peerSession) {
+                peerSession.sendMessage(new TextMessage(json));
+            }
         }
     }
 }

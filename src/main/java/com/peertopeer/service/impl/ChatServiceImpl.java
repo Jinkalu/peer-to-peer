@@ -53,6 +53,7 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional(rollbackOn = Exception.class)
     public Long saveMessage(String conversationId, String fromUser, String msg, MessageStatus status) {
+        conversationsRepository.updateUpdatedAtById(System.currentTimeMillis(), Long.valueOf(conversationId));
         return messageRepository.saveAndFlush(Message.builder()
                 .message(msg)
                 .conversation(conversationsRepository.findById(Long.valueOf(conversationId)).get())
@@ -73,18 +74,17 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public Conversations createGroup(GroupCreationVO request) {
-      return conversationsRepository.saveAndFlush(Conversations.builder()
+        return conversationsRepository.saveAndFlush(Conversations.builder()
                 .users(!CollectionUtils.isEmpty(request.getUsers()) ?
                         new HashSet<>(userRepository.findAllById(request.getUsers())) : null)
                 .createdBy(request.getUserId())
                 .conversationName(request.getGroupName())
                 .build());
-
     }
 
     @Override
     public Long unreadCount(String sender, String receiver) {
-       return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
+        return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
 
     }
 

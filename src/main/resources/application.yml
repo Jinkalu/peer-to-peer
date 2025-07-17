@@ -4,9 +4,6 @@ server:
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
-  data:
-    redis:
-      url: redis://localhost:6379
   application:
     name: peer-to-peer
   datasource:
@@ -16,9 +13,7 @@ spring:
     hikari:
       connection-timeout: 30000
       maximum-pool-size: 10
-  #  liquibase:
-  #    enabled: true
-  #    change-log: classpath:db.changelog/db.changelog.yaml
+
   jpa:
     hibernate:
       ddl-auto: update

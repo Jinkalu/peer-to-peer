@@ -2,8 +2,10 @@ package com.peertopeer.repository;
 
 import com.peertopeer.entity.Conversations;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -32,4 +34,9 @@ public interface ConversationsRepository extends JpaRepository<Conversations, Lo
                 HAVING COUNT(DISTINCT u.id) = 2
             """)
     Optional<Long> findByUsers_IdAndUsers_Id(Long sender, Long receiver);
+
+    @Transactional
+    @Modifying
+    @Query("update Conversations c set c.updatedAt = ?1 where c.id = ?2")
+    void updateUpdatedAtById(Long updatedAt, Long id);
 }

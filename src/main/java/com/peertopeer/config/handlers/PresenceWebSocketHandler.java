@@ -20,8 +20,8 @@ import static com.peertopeer.utils.PeerUtils.getParam;
 @Component
 public class PresenceWebSocketHandler extends TextWebSocketHandler {
 
-    private final PresenceService presenceService;
     private final ChatService chatService;
+    private final PresenceService presenceService;
 
     public static PresenceWebSocketHandler INSTANCE;
 
