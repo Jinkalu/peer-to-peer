@@ -1,43 +1,79 @@
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f2f5;
-      padding: 30px;
-      text-align: center;
-    }
+body {
+  font-family: Arial, sans-serif;
+  background: #f0f2f5;
+  padding: 30px;
+  text-align: center;
+}
 
-    h2 {
-      margin-bottom: 20px;
-      color: #333;
-    }
+h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
 
-    ul#userList {
-      list-style-type: none;
-      padding: 0;
-      max-width: 400px;
-      margin: 0 auto;
-    }
+ul#userList {
+  list-style-type: none;
+  padding: 0;
+  max-width: 400px;
+  margin: 0 auto;
+}
 
-    li {
-      padding: 12px 20px;
-      margin: 8px 0;
-      border-radius: 8px;
-      background-color: #fff;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      transition: transform 0.1s ease;
-    }
+li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease;
+}
 
-    li:hover {
-      transform: scale(1.02);
-    }
+li:hover {
+  transform: scale(1.02);
+}
 
-    li.online {
-      color: green;
-      border-left: 5px solid green;
-      cursor: pointer;
-    }
+li.online {
+  color: green;
+  border-left: 5px solid green;
+  cursor: pointer;
+}
 
-    li.offline {
-      color: red;
-      border-left: 5px solid red;
-      cursor: pointer;
-    }
+li.offline {
+  color: red;
+  border-left: 5px solid red;
+  cursor: pointer;
+}
+
+.username {
+  flex-grow: 1;
+  font-weight: 500;
+}
+
+.unread-badge {
+  background-color: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+  margin-left: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.unread-badge.hidden {
+  display: none;
+}
+
+/* Pulse animation for unread badges */
+.unread-badge:not(.hidden) {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}

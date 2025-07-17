@@ -22,6 +22,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final PrivateChat privateChat;
     private final PresenceService presenceService;
     private final StatusService statusService;
+    private final ChatService chatService;
 
 
     @Override
@@ -31,7 +32,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOrigins("*")
                 .addInterceptors(new HttpSessionHandshakeInterceptor());
 
-        registry.addHandler(new PresenceWebSocketHandler(presenceService), "/presence")
+        registry.addHandler(new PresenceWebSocketHandler(presenceService,chatService), "/presence")
                 .setAllowedOrigins("*")
                 .addInterceptors(new HttpSessionHandshakeInterceptor());
     }

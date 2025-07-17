@@ -24,4 +24,6 @@ public interface ChatService {
     void updateMessageChatStatus(long value, String user);
 
     Conversations createGroup(GroupCreationVO conversationId);
+
+    Long unreadCount(String target, String connectedUser);
 }

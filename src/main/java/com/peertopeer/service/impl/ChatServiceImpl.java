@@ -82,5 +82,11 @@ public class ChatServiceImpl implements ChatService {
 
     }
 
+    @Override
+    public Long unreadCount(String sender, String receiver) {
+       return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
+
+    }
+
 
 }
