@@ -13,7 +13,7 @@ function proceed() {
         .then(user => {
             localStorage.setItem("userId", user.id);
             localStorage.setItem("username", user.username);
-            window.location.href = "user-list";
+            window.location.href = "user-list.html";
         })
         .catch(err => alert("Login failed: " + err.message));
 }

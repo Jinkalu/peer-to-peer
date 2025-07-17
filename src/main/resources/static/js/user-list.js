@@ -32,7 +32,7 @@
         localStorage.setItem("targetUserId", targetUser.id);
         localStorage.setItem("conversationId", targetUser.conversationId || "");
 
-        window.location.href = "/private"; // or "/chat"
+        window.location.href = "private-chat.html"; // or "/chat"
       };
 
       userListElement.appendChild(li);

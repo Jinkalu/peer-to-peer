@@ -4,14 +4,18 @@
   <meta charset="UTF-8">
   <title>User List</title>
 
-  <link rel="stylesheet" th:href="@{css/user-list.css}">
+  <!-- <link rel="stylesheet" th:href="@{css/user-list.css}"> -->
+   <link rel="stylesheet" href="../static/css/user-list.css">
 </head>
 <body>
 <h2>Available Users</h2>
 <ul id="userList"></ul>
 
-<script th:src="@{js/presence.js}"></script> <!-- Global Ping Socket -->
-<script th:src="@{js/user-list.js}"></script>
+<!-- <script th:src="@{js/presence.js}"></script> 
+<script th:src="@{js/user-list.js}"></script> -->
+
+<script src="../static/js/presence.js"></script> 
+<script src="../static/js/user-list.js"></script>
 
 </body>
 </html>

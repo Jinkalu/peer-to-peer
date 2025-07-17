@@ -6,7 +6,7 @@ let conversationId = null;
 let isReceiverOnline = false; // New: Track receiver's online status
 const messageStore = {};
 
-function connect() {
+ function connect() {
     const sender = localStorage.getItem("username");
     const senderId = localStorage.getItem("userId");
     const receiver = localStorage.getItem("target");
@@ -111,7 +111,7 @@ function connect() {
     };
 
     setupTypingListener();
-}
+ }
 
 // New: Connect to presence tracking for the receiver
 function connectPresenceSocket(targetUserId, currentUserId) {

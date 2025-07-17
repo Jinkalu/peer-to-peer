@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Private Chat</title>
-    <link rel="stylesheet" th:href="@{css/private-chat.css}">
+    <!-- <link rel="stylesheet" th:href="@{css/private-chat.css}"> -->
+     <link rel="stylesheet" href="../static/css/private-chat.css">
 </head>
 <body>
 <h2>Private Chat</h2>
@@ -13,11 +14,15 @@
     <div id="messages"></div>
     <div id="typingStatus"></div>
     <input type="text" id="msgInput" placeholder="Type a message..." disabled>
-    <button onclick="sendMessage()">Send</button>
+<!--    <button id="sendBtn" onclick="sendMessage()">Send</button>-->
+    <button id="sendBtn">Send</button>
 </div>
 
-<script th:src="@{js/presence.js}"></script> <!-- Global Ping Socket -->
-<script th:src="@{js/private-chat.js}"></script>
+<!-- <script th:src="@{js/presence.js}"></script>  -->
+<!--<script th:src="@{js/private-chat.js}"></script>-->
+<!-- <script type="module" th:src="@{js/main.js}"></script> -->
 
+<script src="../static/js/presence.js"></script> 
+<script type="module" src="../static/js/main.js"></script>
 </body>
 </html>

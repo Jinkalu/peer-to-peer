@@ -12,6 +12,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.peertopeer.config.handlers.ChatWebSocketHandler.getUserSession;
 import static com.peertopeer.utils.PeerUtils.getParam;
@@ -34,12 +35,49 @@ public class StatusServiceImpl implements StatusService {
                 "status", status
         );
         WebSocketSession senderSession = getUserSession(sender);
+        System.out.println("STATUS : : " + deliveredStatus);
         if (senderSession != null && senderSession.isOpen()) {
             senderSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(deliveredStatus)));
         }
     }
 
+    private final Map<String, Object> sessionLocks = new ConcurrentHashMap<>();
+
     @Override
+    public void handleTypingStatus(WebSocketSession session, Map<String,
+            String> payload) {
+//        Object lock = sessionLocks.computeIfAbsent(session.getId(), k -> new Object());
+        String fromUser = getParam(session, "sender");
+        String toUser = payload.get("to");
+        WebSocketSession peerSession = getUserSession(toUser);
+        if (Objects.nonNull(peerSession) && peerSession.isOpen()) {
+            Object peerLock = sessionLocks.computeIfAbsent(peerSession.getId(), k -> new Object());
+            synchronized (peerLock) {
+                try {
+                    if (peerSession.isOpen()) {
+                        Map<String, Object> typingMessage = Map.of(
+                                "type", "typing",
+                                "from", fromUser,
+                                "isTyping", payload.get("isTyping")
+                        );
+                        String json = new ObjectMapper().writeValueAsString(typingMessage);
+                        peerSession.sendMessage(new TextMessage(json));
+                    }
+                } catch (IllegalStateException e) {
+                    System.out.println("WebSocket not ready for sending : " + e.getMessage());
+                } catch (Exception e) {
+                    System.out.println("Error sending typing status : " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    // Clean up locks when session closes
+    public void removeSessionLock(String sessionId) {
+        sessionLocks.remove(sessionId);
+    }
+
+/*    @Override
     public void handleTypingStatus(WebSocketSession session, Map<String,
             String> payload) throws IOException {
         String fromUser = getParam(session, "sender");
@@ -61,8 +99,9 @@ public class StatusServiceImpl implements StatusService {
                     "from", fromUser,
                     "isTyping", payload.get("isTyping")
             );
+            System.out.println("typing status : : " + payload.get("isTyping"));
             String json = new ObjectMapper().writeValueAsString(typingMessage);
             peerSession.sendMessage(new TextMessage(json));
         }
-    }
+    }*/
 }
