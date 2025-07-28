@@ -7,19 +7,18 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserVO implements Serializable {
+public class GroupVO implements Serializable {
 
     @Serial
-    private static final long serialVersionUID = -6758910583263958657L;
+    private static final long serialVersionUID = 2161538726226613064L;
 
-    private Long id;
-    private Boolean isOwner;
-    private String username;
-    private Long conversationId;
+    private ConversationVO groupDetails;
+    private List<UserVO> members;
 
 }

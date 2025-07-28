@@ -14,31 +14,6 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-/*    @Query("""
-            SELECT m FROM Message m WHERE
-            (m.receiverUUID = :user1 AND m.senderUUID = :user2)
-            OR (m.receiverUUID = :user2 AND m.senderUUID = :user1) ORDER BY id ASC
-            """)
-    Page<Message> findChatBetween(@Param("user1") String user1, @Param("user2") String user2, Pageable pageable);*/
-
-
-/*    @Modifying
-    @Query("UPDATE Message m SET m.status = 'SEEN' WHERE m.senderUUID = :sender AND m.receiverUUID = :receiver AND m.status = 'SEND' ")
-    void markAsSeen(@Param("sender") String sender, @Param("receiver") String receiver);*/
-
-/*    @Query("""
-            SELECT m FROM Message m WHERE
-            (m.receiverUUID = :user1 AND m.senderUUID = :user2)
-            OR (m.receiverUUID = :user2 AND m.senderUUID = :user1) ORDER BY id ASC
-            """)
-    List<Message> findBySenderUUIDAndReceiverUUID(String senderUUID, String receiverUUID);*/
-
-/*    @Transactional
-    @Modifying
-    @Query("update Message m set m.status = 'SEEN' where m.receiverUUID = ?1 and m.status = ?2 and m.senderUUID = ?3")
-    void updateStatusByReceiverUUIDAndStatusAndSenderUUID(String receiverUUID, MessageStatus status, String senderUUID);
-*/
-
     List<Message> findByConversation_Id(Long id);
 
     @Transactional
@@ -74,4 +49,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
               AND m.status = 'DELIVERED'
             """, nativeQuery = true)
     Long countUnreadMessages(String sender, Long receiver);
+
+    @Transactional
+    @Modifying
+    @Query("update Message m set m.reaction = ?1 where m.id = ?2")
+    void updateReactionById(String reaction, Long id);
 }

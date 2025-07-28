@@ -1,25 +1,25 @@
 package com.peertopeer.service.impl;
 
-import com.peertopeer.config.handlers.ChatWebSocketHandler;
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
 import com.peertopeer.enums.ConversationType;
+import com.peertopeer.enums.MessageReaction;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.MessageRepository;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ChatService;
-import com.peertopeer.service.PresenceService;
-import com.peertopeer.vo.GroupCreationVO;
+import com.peertopeer.utils.ChatUtils;
+import com.peertopeer.vo.MessageVO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.CharUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+
+import static com.peertopeer.utils.PeerUtils.isValidEmoji;
 
 @Service
 @RequiredArgsConstructor
@@ -31,23 +31,27 @@ public class ChatServiceImpl implements ChatService {
 
 
     @Override
-    public List<Message> getChatHistory(String conversationId) {
-        return messageRepository.findByConversation_Id(Long.valueOf(conversationId));
+    public List<MessageVO> getChatHistory(String conversationId) {
+        List<Message> messages = messageRepository.findByConversation_Id(Long.valueOf(conversationId));
+        return messages.stream()
+                .map(message -> {
+                    MessageVO messageVO = ChatUtils.mapToMessageVO(message);
+                    messageVO.setSenderUsername(userRepository.findById(Long.valueOf(message.getSenderUUID())).get().getUsername());
+                    return messageVO;
+                }).toList();
 
     }
-
 
     @Override
     public Long create(String user, String target) {
         Long sender = Long.valueOf(user);
         Long receiver = Long.valueOf(target);
         Optional<Long> byUsersIdAndUsersId = conversationsRepository.findByUsers_IdAndUsers_Id(sender, receiver);
-        return byUsersIdAndUsersId.orElseGet(() -> conversationsRepository.saveAndFlush(Conversations.builder()
-                .type(ConversationType.PRIVATE)
-                .users(Set.of(userRepository.findById(sender).get(),
-                        userRepository.findById(receiver).get()))
-                .build()).getId());
 
+        return byUsersIdAndUsersId.orElseGet(() -> conversationsRepository.saveAndFlush(Conversations.builder()
+                .users(new HashSet<>(userRepository.findAllById(List.of(sender, receiver))))
+                .type(ConversationType.PRIVATE_CHAT)
+                .build()).getId());
     }
 
     @Override
@@ -73,19 +77,21 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public Conversations createGroup(GroupCreationVO request) {
-        return conversationsRepository.saveAndFlush(Conversations.builder()
-                .users(!CollectionUtils.isEmpty(request.getUsers()) ?
-                        new HashSet<>(userRepository.findAllById(request.getUsers())) : null)
-                .createdBy(request.getUserId())
-                .conversationName(request.getGroupName())
-                .build());
+    public Long unreadCount(String sender, String receiver) {
+
+        return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
     }
 
     @Override
-    public Long unreadCount(String sender, String receiver) {
-        return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
-
+    public void messageReaction(Long messageId, String reaction) {
+        if (reaction == null || reaction.isEmpty()){
+            messageRepository.updateReactionById(reaction,messageId);
+            return;
+        }
+        if (!isValidEmoji(reaction)) {
+            throw new IllegalArgumentException("Only emojis are allowed!");
+        }
+        messageRepository.updateReactionById(reaction,messageId);
     }
 
 

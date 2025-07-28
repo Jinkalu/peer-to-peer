@@ -11,4 +11,6 @@ public interface StatusService {
     void sendStatus(MessageStatus status, String sender, String messageId, String conversationId) throws IOException;
 
     void handleTypingStatus(WebSocketSession session, Map<String, String> payload) throws IOException;
+
+    void handleGroupTypingStatus(WebSocketSession session, Map<String, String> payload);
 }

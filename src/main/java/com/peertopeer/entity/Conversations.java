@@ -4,17 +4,15 @@ package com.peertopeer.entity;
 import com.peertopeer.enums.ConversationStatus;
 import com.peertopeer.enums.ConversationType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 
-@Data
+@Getter
+@Setter
 @Entity
 @Builder
 @AllArgsConstructor
@@ -52,6 +50,7 @@ public class Conversations {
             joinColumns = @JoinColumn(name = "conversation_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @ToString.Exclude
     private Set<Users> users = new HashSet<>();
 
 
@@ -67,4 +66,5 @@ public class Conversations {
     protected void onUpdate() {
         this.updatedAt = Instant.now().toEpochMilli();
     }
+
 }

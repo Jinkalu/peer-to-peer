@@ -2,10 +2,15 @@ server:
   shutdown: GRACEFUL
 
 spring:
-  lifecycle:
-    timeout-per-shutdown-phase: 30s
   application:
     name: peer-to-peer
+
+  jackson:
+    default-property-inclusion: non_null
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   datasource:
     url: jdbc:postgresql://localhost:5432/peer-to-peer
     username: postgres

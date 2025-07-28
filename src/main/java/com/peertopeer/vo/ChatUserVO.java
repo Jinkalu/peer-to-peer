@@ -5,22 +5,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatUserVO {
+public class ChatUserVO implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = -1831863885935262992L;
+
     private Long id;
-    private String userUUID;
-    private String firstName;
-    private String lastName;
-    private String userName;
-    private String status;
-    private String profilePictureUrl;
+    private String username;
     private Long conversationId;
-    private Boolean isVerified;
-    private String customBadge;
-    private String accountType;
-    private Boolean isBlocked;
-    private Boolean isPrivate;
 }

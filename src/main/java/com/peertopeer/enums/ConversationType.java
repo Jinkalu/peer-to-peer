@@ -1,5 +1,6 @@
 package com.peertopeer.enums;
 
 public enum ConversationType {
-    PRIVATE,
+    PRIVATE_CHAT,
+    GROUP_CHAT
 }
