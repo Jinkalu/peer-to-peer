@@ -2,16 +2,38 @@
 <html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User List</title>
-
   <link rel="stylesheet" th:href="@{css/user-list.css}">
 </head>
 <body>
-<h2>Available Users</h2>
-<ul id="userList"></ul>
+<div class="container">
+  <div class="header">
+    <h2>Available Users</h2>
+    <p>Select a conversation to start chatting</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-number" id="onlineCount">0</span>
+      <span class="stat-label">Online</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number" id="totalCount">0</span>
+      <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number" id="unreadCount">0</span>
+      <span class="stat-label">Unread</span>
+    </div>
+  </div>
+
+  <ul id="userList">
+    <div class="loading-spinner"></div>
+  </ul>
+</div>
 
 <script th:src="@{js/presence.js}"></script> <!-- Global Ping Socket -->
 <script th:src="@{js/user-list.js}"></script>
-
 </body>
 </html>

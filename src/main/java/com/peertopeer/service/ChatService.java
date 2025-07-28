@@ -2,15 +2,17 @@ package com.peertopeer.service;
 
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
+import com.peertopeer.enums.MessageReaction;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.vo.GroupCreationVO;
+import com.peertopeer.vo.MessageVO;
 
 import java.util.List;
 
 
 public interface ChatService {
 
-    List<Message> getChatHistory(String conversationId);
+    List<MessageVO> getChatHistory(String conversationId);
 
 //    void markMessagesAsSeen(String sender, String receiver);
 
@@ -23,5 +25,7 @@ public interface ChatService {
 
     void updateMessageChatStatus(long value, String user);
 
-    Conversations createGroup(GroupCreationVO conversationId);
+    Long unreadCount(String target, String connectedUser);
+
+    void messageReaction(Long messageId, String reaction);
 }

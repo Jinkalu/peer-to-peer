@@ -8,6 +8,7 @@ import com.peertopeer.service.PresenceService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PresenceServiceImpl implements PresenceService {
@@ -46,7 +48,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .removalListener((String userId, LocalDateTime timestamp,RemovalCause cause) -> {
                     if (cause.wasEvicted()) {
                         currentOnlineUsers.remove(userId);
-                        System.out.println("User " + userId + " marked offline due to inactivity");
+                        log.info("User {} marked offline due to inactivity", userId);
                     }
                 })
                 .build();
@@ -57,7 +59,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .expireAfterWrite(10, TimeUnit.SECONDS) // Typing expires after 10 seconds
                 .removalListener((String key, LocalDateTime timestamp,RemovalCause cause) -> {
                     if (cause.wasEvicted()) {
-                        System.out.println("Typing indicator expired for: " + key);
+                        log.info("Typing indicator expired for: {}", key);
                     }
                 })
                 .build();
@@ -79,7 +81,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .expireAfterWrite(1, TimeUnit.HOURS)
                 .build();
 
-        System.out.println("Caffeine caches initialized successfully");
+        log.info("Caffeine caches initialized successfully");
     }
 
     @PreDestroy
@@ -94,43 +96,43 @@ public class PresenceServiceImpl implements PresenceService {
 
     private synchronized void executeShutdownCleanup(String trigger) {
         if (shutdownExecuted) {
-            System.out.println("Shutdown cleanup already executed, skipping " + trigger);
+            log.info("Shutdown cleanup already executed, skipping {}", trigger);
             return;
         }
 
-        System.out.println("=== Executing shutdown cleanup via " + trigger + " ===");
+        log.info("=== Executing shutdown cleanup via {} ===", trigger);
         try {
             // Clear all Caffeine caches
             if (onlineUsersCache != null) {
                 onlineUsersCache.invalidateAll();
-                System.out.println("Cleared online users cache");
+                log.info("Cleared online users cache");
             }
 
             if (typingUsersCache != null) {
                 typingUsersCache.invalidateAll();
-                System.out.println("Cleared typing users cache");
+                log.info("Cleared typing users cache");
             }
 
             if (conversationUsersCache != null) {
                 conversationUsersCache.invalidateAll();
-                System.out.println("Cleared conversation users cache");
+                log.info("Cleared conversation users cache");
             }
 
             if (lastActivityCache != null) {
                 lastActivityCache.invalidateAll();
-                System.out.println("Cleared last activity cache");
+                log.info("Cleared last activity cache");
             }
 
             // Clear in-memory collections
             currentOnlineUsers.clear();
             conversationScreenUsers.clear();
-            System.out.println("Cleared in-memory collections");
+            log.info("Cleared in-memory collections");
 
             shutdownExecuted = true;
-            System.out.println("Caffeine cache cleanup completed successfully via " + trigger);
+            log.info("Caffeine cache cleanup completed successfully via {}", trigger);
 
         } catch (Exception e) {
-            System.err.println("Failed to clear Caffeine caches via " + trigger + ": " + e.getMessage());
+            log.error("Failed to clear Caffeine caches via {}: {}", trigger, e.getMessage());
             e.printStackTrace();
         }
     }
@@ -144,7 +146,7 @@ public class PresenceServiceImpl implements PresenceService {
         currentOnlineUsers.add(userId);
         lastActivityCache.put(userId, now);
 
-        System.out.println("User " + userId + " marked online at " + now);
+        log.info("User {} marked online at {}", userId, now);
 
         // Update message status
         chatService.updateMessageStatus(userId);
@@ -177,7 +179,7 @@ public class PresenceServiceImpl implements PresenceService {
         // Update last activity
         lastActivityCache.put(userId, LocalDateTime.now());
 
-        System.out.println("User " + userId + " marked offline");
+        log.info("User {} marked offline", userId);
     }
 
     @Override
@@ -204,7 +206,7 @@ public class PresenceServiceImpl implements PresenceService {
         // Store typing indicator with timestamp
         typingUsersCache.put(key, now);
 
-        System.out.println("User " + userId + " started typing in chat " + chatId);
+        log.info("User {} started typing in chat {}", userId, chatId);
     }
 
     @Override
@@ -212,7 +214,7 @@ public class PresenceServiceImpl implements PresenceService {
         String key = key(chatId, userId);
         typingUsersCache.invalidate(key);
 
-        System.out.println("User " + userId + " stopped typing in chat " + chatId);
+        log.info("User {} stopped typing in chat {}", userId, chatId);
     }
 
     @Override
@@ -233,13 +235,10 @@ public class PresenceServiceImpl implements PresenceService {
                 conversationId,
                 k -> ConcurrentHashMap.newKeySet()
         );
-
         users.add(userId);
-
         // Update cache
         conversationUsersCache.put(conversationId, Set.copyOf(users));
-
-        System.out.println("User " + userId + " is now on screen for conversation " + conversationId);
+        log.info("User {} is now on screen for conversation {}", userId, conversationId);
     }
 
     @Override
@@ -257,7 +256,7 @@ public class PresenceServiceImpl implements PresenceService {
             }
         }
 
-        System.out.println("User " + userId + " is no longer on screen for conversation " + conversationId);
+        log.info("User {} is no longer on screen for conversation {}", userId, conversationId);
     }
 
     @Override
@@ -316,20 +315,20 @@ public class PresenceServiceImpl implements PresenceService {
         typingUsersCache.cleanUp();
         conversationUsersCache.cleanUp();
         lastActivityCache.cleanUp();
-        System.out.println("Manual cleanup of expired cache entries completed");
+        log.info("Manual cleanup of expired cache entries completed");
     }
 
     /**
      * Get cache statistics for monitoring
      */
     public void printCacheStats() {
-        System.out.println("=== Caffeine Cache Statistics ===");
-        System.out.println("Online Users Cache: " + onlineUsersCache.stats());
-        System.out.println("Typing Users Cache: " + typingUsersCache.stats());
-        System.out.println("Conversation Users Cache: " + conversationUsersCache.stats());
-        System.out.println("Last Activity Cache: " + lastActivityCache.stats());
-        System.out.println("Current Online Users: " + currentOnlineUsers.size());
-        System.out.println("Conversations with Users: " + conversationScreenUsers.size());
+        log.info("=== Caffeine Cache Statistics ===");
+        log.info("Online Users Cache: {}", onlineUsersCache.stats());
+        log.info("Typing Users Cache: {}", typingUsersCache.stats());
+        log.info("Conversation Users Cache: {}", conversationUsersCache.stats());
+        log.info("Last Activity Cache: {}", lastActivityCache.stats());
+        log.info("Current Online Users: {}", currentOnlineUsers.size());
+        log.info("Conversations with Users: {}", conversationScreenUsers.size());
     }
 
     /**
@@ -346,6 +345,6 @@ public class PresenceServiceImpl implements PresenceService {
         // Remove from all conversation screens
         conversationScreenUsers.values().forEach(users -> users.remove(userId));
 
-        System.out.println("Force removed user " + userId + " from all presence tracking");
+        log.info("Force removed user {} from all presence tracking", userId);
     }
 }

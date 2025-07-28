@@ -2,13 +2,15 @@ server:
   shutdown: GRACEFUL
 
 spring:
-  lifecycle:
-    timeout-per-shutdown-phase: 30s
-  data:
-    redis:
-      url: redis://localhost:6379
   application:
     name: peer-to-peer
+
+  jackson:
+    default-property-inclusion: non_null
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   datasource:
     url: jdbc:postgresql://localhost:5432/peer-to-peer
     username: postgres
@@ -16,9 +18,7 @@ spring:
     hikari:
       connection-timeout: 30000
       maximum-pool-size: 10
-  #  liquibase:
-  #    enabled: true
-  #    change-log: classpath:db.changelog/db.changelog.yaml
+
   jpa:
     hibernate:
       ddl-auto: update

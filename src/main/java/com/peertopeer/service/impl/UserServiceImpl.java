@@ -1,7 +1,9 @@
 package com.peertopeer.service.impl;
 
+import com.peertopeer.entity.Conversations;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.UserRepository;
+import com.peertopeer.service.ConversationService;
 import com.peertopeer.service.UserService;
 import com.peertopeer.vo.UserLoginVO;
 import com.peertopeer.vo.UserVO;
@@ -20,6 +22,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Long login(UserLoginVO request) {
+        return null;
+    }
+
+    public List<Conversations> userConversations(Long currentUserId){
+        List<Conversations> conversations = conversationsRepository.findByUsers_Id(currentUserId);
+
         return null;
     }
 

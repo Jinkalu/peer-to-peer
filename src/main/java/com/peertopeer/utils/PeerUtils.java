@@ -40,38 +40,20 @@ public class PeerUtils {
                 : user2 + "_" + user1;
     }
 
-  /*  public <T> T parseAndValidate(String request, Class<T> clazz) {
-        try {
-            if (isEmpty(request)) {
-//                throw buildValidationException(List.of("Request body is empty"));
-                throw new RuntimeException("Body is empty");
-            }
+    public static boolean isValidEmoji(String input) {
+//        if (input == null || input.isEmpty()) return false;
 
-            T dto = new ObjectMapper().readValue(request, clazz);
-            Set<ConstraintViolation<T>> violations = validator.validate(dto);
+        int codePointCount = input.codePointCount(0, input.length());
+        if (codePointCount != 1) return false; // Ensure it's a single emoji
 
-            if (!violations.isEmpty()) {
-                List<String> errors = new ArrayList<>();
-                for (ConstraintViolation<T> violation : violations) {
-                    errors.add(violation.getMessage());
-                }
-                throw new RuntimeException("Body is empty");
-            }
-            return dto;
+        int codePoint = input.codePointAt(0);
 
-        } catch (ValidationException ve) {
-            throw ve;
-        } catch (Exception ex) {
-            throw new RuntimeException("Body is empty");
-        }
-    }*/
+        // Emoji ranges (simplified; customize as needed)
+        return (codePoint >= 0x1F600 && codePoint <= 0x1F64F) || // Emoticons
+                (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) || // Misc Symbols and Pictographs
+                (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // Transport and Map
+                (codePoint >= 0x2600 && codePoint <= 0x26FF)   || // Misc symbols
+                (codePoint >= 0x2700 && codePoint <= 0x27BF);     // Dingbats
+    }
 
-  /*  private ValidationException buildValidationException(List<String> errors) {
-        return new ValidationException(ApiError.builder()
-                .status(HttpStatus.BAD_REQUEST.name())
-                .code(String.valueOf(HttpStatus.BAD_REQUEST.value()))
-                .httpStatus(HttpStatus.BAD_REQUEST)
-                .errors(errors)
-                .build());
-    }*/
 }

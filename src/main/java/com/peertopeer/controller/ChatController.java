@@ -1,9 +1,12 @@
 package com.peertopeer.controller;
 
 
-import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
-import com.peertopeer.vo.GroupCreationVO;
+import com.peertopeer.enums.MessageReaction;
+import com.peertopeer.service.ConversationService;
+import com.peertopeer.vo.ConversationVO;
+
+import com.peertopeer.vo.MessageVO;
 import lombok.RequiredArgsConstructor;
 import com.peertopeer.service.ChatService;
 import org.springframework.web.bind.annotation.*;
@@ -16,15 +19,21 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ConversationService conversationService;
 
     @GetMapping("/chat-history")
-    public List<Message> getChatHistory(@RequestParam String conversationId) {
+    public List<MessageVO> getChatHistory(@RequestParam String conversationId) {
         return chatService.getChatHistory(conversationId);
     }
 
-    @GetMapping("/create-group")
-    public Conversations createGroup(@RequestBody GroupCreationVO requestBody) {
-        return chatService.createGroup(requestBody);
+    @GetMapping("conversation/{currentUserId}")
+    public List<ConversationVO> listConversations(@PathVariable Long currentUserId) {
+        return conversationService.listConversations(currentUserId);
     }
 
+    @PostMapping("/reaction/{messageId}")
+    public void messageReaction(@PathVariable Long messageId,
+                                @RequestParam(required = false) String reaction) {
+        chatService.messageReaction(messageId,reaction);
+    }
 }

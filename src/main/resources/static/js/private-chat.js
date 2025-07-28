@@ -1,47 +1,46 @@
 let socket;
-let presenceSocket; // New: WebSocket for presence tracking
+let presenceSocket;
 let typingTimeout;
 let lastTypingState = false;
 let conversationId = null;
-let isReceiverOnline = false; // New: Track receiver's online status
+let isReceiverOnline = false;
 const messageStore = {};
 
 function connect() {
     const sender = localStorage.getItem("username");
     const senderId = localStorage.getItem("userId");
-    const receiver = localStorage.getItem("target");
+    const receiver = localStorage.getItem("targetUsername");
     const receiverId = localStorage.getItem("targetUserId");
-    const existingConversationId = localStorage.getItem("conversationId");
+    conversationId = localStorage.getItem("conversationId");
+    localStorage.setItem("isReceiverOnScreen",false);
 
-    if (!sender || !receiver) {
-        alert("Missing sender or receiver. Please go back to the home page.");
+    if (!sender || !receiverId || !conversationId) {
+        showNotification("Missing required data. Please go back to the user list.", "error");
+        setTimeout(() => {
+            window.location.href = "/user-list";
+        }, 2000);
         return;
     }
 
-    document.getElementById("chatInfo").innerText = `You are ${sender}. Chatting with ${receiver}`;
+    // Update UI with user info
+    updateChatHeader(sender, receiver);
+    updateConnectionStatus("connecting");
 
     // Connect to presence tracking for the receiver
-    connectPresenceSocket(receiverId, senderId);
+    connectPresenceSocket(receiverId, senderId, conversationId);
 
-    let url;
-    if (existingConversationId && existingConversationId.trim() !== "") {
-        conversationId = existingConversationId;
-        url = `ws://localhost:8080/chat?sender=${senderId}&type=private&conversationId=${existingConversationId}`;
-        console.log("✅ Using existing conversation:", existingConversationId);
-    } else {
-        url = `ws://localhost:8080/chat?sender=${senderId}&receiver=${receiverId}&type=private`;
-        console.log("✅ Creating new conversation with:", receiver);
-    }
+    // Connect to chat WebSocket
+    const url = `ws://localhost:8080/chat?sender=${senderId}&type=private&conversationId=${conversationId}`;
+    console.log("✅ Connecting with conversation ID:", conversationId);
 
     socket = new WebSocket(url);
 
     socket.onopen = () => {
         console.log("✅ Connected to private chat");
         document.getElementById("msgInput").disabled = false;
-
-        if (conversationId) {
-            loadHistory();
-        }
+        document.getElementById("sendButton").disabled = false;
+        updateConnectionStatus("connected");
+        loadHistory();
     };
 
     socket.onmessage = (event) => {
@@ -50,20 +49,13 @@ function connect() {
         console.log({data});
 
         if (typeof data === 'string' && data.startsWith("conversationId:")) {
-            conversationId = data.split(":")[1];
-            localStorage.setItem("conversationId", conversationId);
-            console.log("✅ New conversation ID received:", conversationId);
-            loadHistory();
+            console.log("Received conversation ID confirmation:", data);
             return;
         }
 
         if (data.type === "typing") {
-            const typingStatus = document.getElementById("typingStatus");
-            const receiverUsername = localStorage.getItem("target");
-            const receiverId = localStorage.getItem("targetUserId");
-            if (data.from === receiverId) {
-                typingStatus.textContent = data.isTyping === "true" ? `${receiverUsername} is typing...` : "";
-            }
+            localStorage.setItem("isReceiverOnScreen",true);
+            handleTypingStatus(data);
             return;
         }
 
@@ -73,11 +65,22 @@ function connect() {
             return;
         }
 
+      
+
         if(data.type === 'reload'){
             console.log("reload.....!!!!");
-            messageStore[data.receiver +"_"+localStorage.getItem("conversationId")] = [];
+            // localStorage.setItem("isReceiverOnScreen",true);
+            messageStore[conversationId] = [];
             loadHistory();
+            return;
         }
+
+        if (data.type === "receiverStatus") {
+            localStorage.setItem("isReceiverOnScreen",false);
+            return;
+        }
+
+
 
         if (data.conversationId && data.sender && data.msg) {
             console.log("incoming msg : : ", data);
@@ -85,38 +88,90 @@ function connect() {
             const msg = data.msg;
             const msgId = data.msgId;
 
-            if (!messageStore[receiverId +"_"+ localStorage.getItem("conversationId")]) {
-                messageStore[receiverId +"_" + localStorage.getItem("conversationId")] = [];
+            if (!messageStore[conversationId]) {
+                messageStore[conversationId] = [];
             }
 
-            messageStore[receiverId + "_" + localStorage.getItem("conversationId")].push({
+            let status = 'SEND';
+            if (isReceiverOnline && localStorage.getItem("isReceiverOnScreen")) {
+                status = 'SEEN'
+            }else if (isReceiverOnline) {
+                status = 'DELIVERED'
+            }
+            console.log(`initial status ${status}`);
+            messageStore[conversationId].push({
                 from,
                 msg,
                 msgId,
-                status: 'DELIVERED'
+                status: status,
+                timestamp: new Date()
             });
 
-            document.getElementById("typingStatus").textContent = "";
-            log(`Received: ${msg}`, "other");
+            // Clear typing indicator
+            clearTypingIndicator();
+
+            // Add message to UI
+            addMessageToUI(msg, false, status , new Date(), msgId);
         }
     };
 
     socket.onclose = () => {
         console.warn("WebSocket connection closed");
         document.getElementById("msgInput").disabled = true;
+        document.getElementById("sendButton").disabled = true;
+        updateConnectionStatus("disconnected");
     };
 
     socket.onerror = (error) => {
         console.error("WebSocket error:", error);
+        updateConnectionStatus("error");
     };
 
-    setupTypingListener();
+    setupEventListeners();
 }
 
-// New: Connect to presence tracking for the receiver
-function connectPresenceSocket(targetUserId, currentUserId) {
+function updateChatHeader(currentUser, targetUser) {
+    const username = document.getElementById("chatUsername");
+    const userInitial = document.getElementById("userInitial");
+
+    username.textContent = targetUser || 'User';
+    userInitial.textContent = (targetUser || 'U')[0].toUpperCase();
+}
+
+function updateConnectionStatus(status) {
+    const statusElement = document.getElementById("connectionStatus");
+    const statusText = statusElement.querySelector(".status-text");
+    const statusIndicator = statusElement.querySelector(".status-indicator");
+
+    statusIndicator.className = "status-indicator";
+    statusElement.classList.remove("show");
+
+    switch(status) {
+        case "connecting":
+            statusText.textContent = "Connecting...";
+            statusElement.classList.add("show");
+            break;
+        case "connected":
+            statusText.textContent = "Connected";
+            statusIndicator.classList.add("connected");
+            statusElement.classList.add("show");
+            setTimeout(() => statusElement.classList.remove("show"), 2000);
+            break;
+        case "disconnected":
+            statusText.textContent = "Disconnected";
+            statusElement.classList.add("show");
+            break;
+        case "error":
+            statusText.textContent = "Connection Error";
+            statusElement.classList.add("show");
+            break;
+    }
+}
+
+function connectPresenceSocket(targetUserId, currentUserId, conversationId) {
+    console.log(`presence function ${targetUserId} :: ${currentUserId} :: ${conversationId}`)
     presenceSocket = new WebSocket(
-        `ws://localhost:8080/presence?type=subscribe&target=${targetUserId}&user=${currentUserId}`
+        `ws://localhost:8080/presence?type=subscribe&target=${targetUserId}&user=${currentUserId}&convoId=${conversationId}`
     );
 
     presenceSocket.onopen = () => {
@@ -129,6 +184,7 @@ function connectPresenceSocket(targetUserId, currentUserId) {
 
         if (data.user === targetUserId) {
             isReceiverOnline = data.online;
+
             updatePresenceIndicator(data.online);
 
             // If user comes online, mark pending messages as delivered
@@ -140,7 +196,7 @@ function connectPresenceSocket(targetUserId, currentUserId) {
 
     presenceSocket.onclose = () => {
         console.warn("Presence socket closed, retrying...");
-        setTimeout(() => connectPresenceSocket(targetUserId, currentUserId), 3000);
+        setTimeout(() => connectPresenceSocket(targetUserId, currentUserId, conversationId), 3000);
     };
 
     presenceSocket.onerror = (error) => {
@@ -148,29 +204,27 @@ function connectPresenceSocket(targetUserId, currentUserId) {
     };
 }
 
-// New: Update presence indicator in UI
 function updatePresenceIndicator(isOnline) {
-    const receiverName = localStorage.getItem("target");
-    const chatInfo = document.getElementById("chatInfo");
-    const onlineStatus = isOnline ? "🟢 Online" : "🔴 Offline";
+    const userAvatar = document.querySelector(".user-avatar");
+    const userStatus = document.getElementById("userStatus");
 
-    chatInfo.innerHTML = `
-        You are ${localStorage.getItem("username")}.
-        Chatting with ${receiverName}
-        <span style="margin-left: 10px; font-size: 0.9em;">${onlineStatus}</span>
-    `;
+    if (isOnline) {
+        userAvatar.classList.add("online");
+        userStatus.innerHTML = '<span class="status-dot"></span>Online';
+        userStatus.className = "status online";
+    } else {
+        userAvatar.classList.remove("online");
+        userStatus.innerHTML = '<span class="status-dot"></span>Offline';
+        userStatus.className = "status offline";
+    }
 }
 
-// New: Mark pending messages as delivered when user comes online
 function markPendingMessagesAsDelivered() {
-    const receiverId = localStorage.getItem("targetUserId");
-    const chat = messageStore[receiverId  +"_"+localStorage.getItem("conversationId")] || [];
+    const chat = messageStore[conversationId] || [];
     const currentUserId = localStorage.getItem("userId");
-
     let hasUpdates = false;
 
     chat.forEach(message => {
-        // Mark own messages that are only "SEND" as "DELIVERED"
         if (message.from === currentUserId && message.status === 'SEND') {
             message.status = 'DELIVERED';
             hasUpdates = true;
@@ -189,41 +243,124 @@ function sendMessage() {
     const receiver = localStorage.getItem("targetUserId");
     const sender = localStorage.getItem("userId");
 
-    if (!receiver || !msg || socket.readyState !== WebSocket.OPEN) return;
+    if (!msg || socket.readyState !== WebSocket.OPEN) return;
 
     const payload = {
+        type: "msg",
         receiver: receiver,
         msg: msg
     };
 
     socket.send(JSON.stringify(payload));
 
-    if (!messageStore[receiver +"_"+localStorage.getItem("conversationId")]) messageStore[receiver +"_"+localStorage.getItem("conversationId")] = [];
+    if (!messageStore[conversationId]) messageStore[conversationId] = [];
 
-    // New: Set initial status based on receiver's online status
-    const initialStatus = isReceiverOnline ? 'DELIVERED' : 'SEND';
+     let initialStatus = 'SEND';
+
+     if (isReceiverOnline && localStorage.getItem("isReceiverOnScreen")) {
+        initialStatus = 'SEEN';
+     }else if(isReceiverOnline){
+        initialStatus = 'DELIVERED';
+     }
+   
+    const timestamp = new Date();
 
     const localMessage = {
         from: sender,
         msg,
         status: initialStatus,
-        msgId: null
+        msgId: null,
+        timestamp
     };
-    messageStore[receiver +"_"+localStorage.getItem("conversationId")].push(localMessage);
+    messageStore[conversationId].push(localMessage);
 
-    log(`You: ${msg}`, "you", initialStatus);
+    // Add message to UI
+    addMessageToUI(msg, true, initialStatus, timestamp);
+
     msgBox.value = '';
     sendTypingStatus(false);
+
+    // Auto-focus input
+    msgBox.focus();
 }
 
-function setupTypingListener() {
+function addMessageToUI(message, isSent, status, timestamp, msgId = null) {
+    const messagesContainer = document.getElementById("messages");
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `message-bubble ${isSent ? 'sent' : 'received'}`;
+
+    const timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    messageDiv.innerHTML = `
+        <div class="message-content">${escapeHtml(message)}</div>
+        <div class="message-meta">
+            <span class="message-time">${timeStr}</span>
+            ${isSent ? `<span class="message-status">${getStatusIcon(status)}</span>` : ''}
+        </div>
+    `;
+
+    if (msgId) {
+        messageDiv.dataset.msgId = msgId;
+    }
+
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function handleTypingStatus(data) {
+    const receiverUsername = localStorage.getItem("targetUsername");
+    const receiverId = localStorage.getItem("targetUserId");
+
+    if (data.from === receiverId) {
+        if (data.isTyping === "true") {
+            showTypingIndicator(receiverUsername);
+        } else {
+            clearTypingIndicator();
+        }
+    }
+}
+
+function showTypingIndicator(username) {
+    const typingStatus = document.getElementById("typingStatus");
+    typingStatus.innerHTML = `
+        ${username} is typing
+        <div class="typing-dots">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        </div>
+    `;
+}
+
+function clearTypingIndicator() {
+    const typingStatus = document.getElementById("typingStatus");
+    typingStatus.innerHTML = '';
+}
+
+function setupEventListeners() {
     const inputBox = document.getElementById("msgInput");
+
+    // Typing indicator
     inputBox.addEventListener("input", () => {
         sendTypingStatus(true);
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => {
             sendTypingStatus(false);
         }, 1500);
+    });
+
+    // Enter key to send
+    inputBox.addEventListener("keypress", (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize input
+    inputBox.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 }
 
@@ -236,7 +373,7 @@ function sendTypingStatus(isTyping) {
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
             type: "typing",
-            to: receiverId,
+            receiver: receiverId,
             isTyping: isTyping.toString()
         }));
     }
@@ -244,14 +381,13 @@ function sendTypingStatus(isTyping) {
 
 function updateMessageStatus(msgId, newStatus) {
     console.log({msgId, newStatus});
-    const currentTarget = localStorage.getItem("targetUserId");
-    const chat = messageStore[currentTarget +"_"+localStorage.getItem("conversationId")] || [];
+    const chat = messageStore[conversationId] || [];
     console.log({messageStore});
 
     let messageFound = false;
     for (let i = chat.length - 1; i >= 0; i--) {
         if (chat[i].msgId === msgId || (!chat[i].msgId && i === chat.length - 1)) {
-            chat[i].status = newStatus;
+            // chat[i].status = newStatus;
             chat[i].msgId = msgId;
             messageFound = true;
             break;
@@ -259,76 +395,70 @@ function updateMessageStatus(msgId, newStatus) {
     }
 
     if (messageFound) {
-        reloadMessages();
+        // updateMessageStatusInUI(msgId, newStatus);
+    }
+}
+
+function updateMessageStatusInUI(msgId, status) {
+    // Find message in UI and update status
+    const messages = document.querySelectorAll('.message-bubble.sent');
+    const targetMessage = msgId ?
+        Array.from(messages).find(msg => msg.dataset.msgId === msgId) :
+        messages[messages.length - 1]; // Last message if no msgId
+
+    if (targetMessage) {
+        const statusSpan = targetMessage.querySelector('.message-status');
+        if (statusSpan) {
+            statusSpan.innerHTML = getStatusIcon(status);
+        }
     }
 }
 
 function reloadMessages() {
-    const messages = document.getElementById("messages");
-    messages.innerHTML = '';
+    const messagesContainer = document.getElementById("messages");
+    messagesContainer.innerHTML = '';
 
-    const currentTarget = localStorage.getItem("targetUserId");
-    const chat = messageStore[currentTarget +"_"+localStorage.getItem("conversationId")] || [];
+    const chat = messageStore[conversationId] || [];
     const currentUser = localStorage.getItem("userId");
 
     chat.forEach(m => {
-        const isYou = m.from === currentUser;
-        log(`${isYou ? "You" : "Received"}: ${m.msg}`, isYou ? "you" : "other", m.status);
+        const isSent = m.from === currentUser;
+        addMessageToUI(m.msg, isSent, m.status, m.timestamp || new Date(), m.msgId);
     });
 }
 
-function log(message, type = "info", status = null) {
-    const messages = document.getElementById("messages");
-    const div = document.createElement("div");
-    div.className = `message ${type}`;
-
-    if (type === "you" && status) {
-        const icon = getStatusIcon(status);
-        div.innerHTML = `${message} <span style="float:right">${icon}</span>`;
-    } else {
-        div.textContent = message;
-    }
-
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
-}
-
 function getStatusIcon(status) {
+    console.log(`inside status icon ${status}`)
     switch (status) {
-        case 'SEND': return '<span style="color:grey;">✓</span>';
-        case 'DELIVERED': return '<span style="color:grey;">✓✓</span>';
-        case 'SEEN': return '<span style="color:blue;">✓✓</span>';
-        default: return '';
+        case 'SEND':
+            return '<span class="status-icon sent">✓</span>';
+        case 'DELIVERED':
+            return '<span class="status-icon delivered">✓✓</span>';
+        case 'SEEN':
+            return '<span class="status-icon seen">✓✓</span>';
+        default:
+            return '';
     }
 }
-
-
 
 function loadHistory() {
-    const cid = conversationId || localStorage.getItem("conversationId");
-    if (!cid || cid.trim() === "") {
+    if (!conversationId || conversationId.trim() === "") {
         console.log("No conversation ID available for loading history");
         return;
     }
 
-    const url = `http://localhost:8080/api/chat-history?conversationId=${cid}`;
-    const receiverId = localStorage.getItem("targetUserId");
+    const url = `http://localhost:8080/api/chat-history?conversationId=${conversationId}`;
     const senderId = localStorage.getItem("userId");
 
-    // Clear existing chat history for the specific conversation
-    messageStore[receiverId + "_" + cid] = [];
+    // Clear existing chat history for the conversation
+    messageStore[conversationId] = [];
+    document.getElementById("messages").innerHTML = '';
 
-    // Ensure messageStore entry exists
-    if (!messageStore[receiverId + "_" + cid]) {
-        messageStore[receiverId + "_" + cid] = [];
-    }
-
-    // Fetch the new chat history
     fetch(url)
         .then(res => {
             if (!res.ok) {
                 console.error(`HTTP error! status: ${res.status}`);
-                return;
+                return null;
             }
             return res.json();
         })
@@ -337,28 +467,31 @@ function loadHistory() {
                 console.log("No chat history available");
                 return;
             }
-            document.getElementById("messages").innerHTML = '';
-            // Populate messageStore with new chat history
+
+            // Populate messageStore with chat history
             data.forEach(msg => {
                 const isYou = msg.senderUUID === senderId;
-                messageStore[receiverId + "_" + cid].push({
+                const timestamp = new Date(msg.timestamp || Date.now());
+
+                messageStore[conversationId].push({
                     from: msg.senderUUID,
                     msg: msg.message,
                     status: msg.status,
-                    msgId: msg.id
+                    msgId: msg.id,
+                    timestamp
                 });
 
-                // Log the message to the UI
-                log(`${isYou ? "You" : "Received"}: ${msg.message}`, isYou ? "you" : "other", msg.status);
+                // Add message to UI
+                addMessageToUI(msg.message, isYou, msg.status, timestamp, msg.id);
             });
 
             console.log("history:", messageStore);
         })
         .catch(err => {
             console.error("Chat history fetch failed:", err);
+            showNotification("Failed to load chat history", "error");
         });
 }
-
 
 function parseJson(raw) {
     try {
@@ -367,6 +500,61 @@ function parseJson(raw) {
         console.warn("Non-JSON message:", raw);
         return raw;
     }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function goBack() {
+    // Add exit animation
+    const chatContainer = document.querySelector('.chat-container');
+    chatContainer.style.transform = 'translateY(30px) scale(0.95)';
+    chatContainer.style.opacity = '0';
+
+    setTimeout(() => {
+        window.location.href = "/user-list";
+    }, 300);
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 16px 24px;
+        border-radius: 12px;
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        transform: translateX(400px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        ${type === 'success'
+            ? 'background: rgba(34, 197, 94, 0.9);'
+            : 'background: rgba(239, 68, 68, 0.9);'
+        }
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+
+    setTimeout(() => {
+        notification.style.transform = 'translateX(400px)';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // Handle page events
@@ -378,20 +566,7 @@ window.onbeforeunload = () => {
         socket.close();
     }
 
-    // New: Close presence socket
     if (presenceSocket && presenceSocket.readyState === WebSocket.OPEN) {
         presenceSocket.close();
     }
 };
-
-// Handle Enter key for sending messages
-document.addEventListener('DOMContentLoaded', function() {
-    const msgInput = document.getElementById('msgInput');
-    if (msgInput) {
-        msgInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-    }
-});

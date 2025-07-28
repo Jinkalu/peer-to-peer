@@ -2,10 +2,7 @@ package com.peertopeer.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
-import com.peertopeer.service.ChatService;
-import com.peertopeer.service.PresenceService;
-import com.peertopeer.service.PrivateChat;
-import com.peertopeer.service.StatusService;
+import com.peertopeer.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
@@ -13,22 +10,26 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
-import static com.peertopeer.config.handlers.ChatWebSocketHandler.getUserSession;
+import static com.peertopeer.config.handlers.PrivateChatWebSocketHandler.getUserSession;
+import static com.peertopeer.config.handlers.PresenceWebSocketHandler.getSubscribed;
 import static com.peertopeer.utils.PeerUtils.*;
 
 @Service
 @RequiredArgsConstructor
-public  class PrivateServiceImpl implements PrivateChat {
+public class PrivateServiceImpl implements PrivateChat {
 
     private final ChatService chatService;
     private final PresenceService presenceService;
     private final StatusService statusService;
+    private final ConversationService conversationService;
 
     @Override
     public String privateConnect(WebSocketSession session, String user) throws IOException {
         String conversationId;
         String receiver = getParam(session, "receiver");
+
         if (!isEmpty(receiver)) {
             conversationId = String.valueOf(chatService.create(user, receiver));
             chatService.updateMessageChatStatus(Long.parseLong(conversationId), user);
@@ -75,8 +76,24 @@ public  class PrivateServiceImpl implements PrivateChat {
             );
             peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
         }
+        messageNotification(sender, receiver, conversationId);
         // ✅ Send delivered status to sender
         statusService.sendStatus(status, sender, messageId, conversationId);
+    }
+
+    private void messageNotification(String sender, String receiver, String conversationId) throws IOException {
+        WebSocketSession subscribed = getSubscribed(sender, receiver);
+        if (Objects.nonNull(subscribed) && subscribed.isOpen()) {
+
+            Map<String, Object> response = Map.of(
+                    "user", sender,
+                    "online", true,
+                    "unreadCount", conversationService.unreadCountInConvo(Long.valueOf(sender),
+                            Long.valueOf(conversationId)),
+                    "conversationId", conversationId
+            );
+            subscribed.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
+        }
     }
 
 }

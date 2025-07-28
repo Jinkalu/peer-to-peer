@@ -1,19 +1,52 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml" xmlns:th="http://www.w3.org/1999/xhtml">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Login</title>-->
+<!--    <link rel="stylesheet" th:href="@{css/index.css}">-->
+<!--</head>-->
+<!--<body>-->
+
+<!--<div class="login-container">-->
+<!--    <h2>Enter Username</h2>-->
+<!--    <label for="username"></label> <input type="text" id="username" placeholder="Enter your username">-->
+<!--    <button onclick="proceed()">Continue</button>-->
+<!--</div>-->
+
+<!--<script th:src="@{js/index.js}"></script>-->
+
+<!--</body>-->
+<!--</html>-->
+
+
+<!---->
+
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Login</title>
     <link rel="stylesheet" th:href="@{css/index.css}">
 </head>
 <body>
+<div class="particles"></div>
 
 <div class="login-container">
-    <h2>Enter Username</h2>
-    <label for="username"></label> <input type="text" id="username" placeholder="Enter your username">
-    <button onclick="proceed()">Continue</button>
+    <div class="login-header">
+        <h2>Welcome Back</h2>
+        <p>Enter your username to continue</p>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="username" placeholder="Enter your username" spellcheck="false" />
+    </div>
+
+    <button class="continue-btn" onclick="proceed()">
+        <span class="btn-text">Continue</span>
+    </button>
 </div>
 
 <script th:src="@{js/index.js}"></script>
-
 </body>
 </html>
