@@ -20,6 +20,7 @@ public class UserVO implements Serializable {
     private Long id;
     private Boolean isOwner;
     private String username;
+    private String password;
     private Long conversationId;
 
 }

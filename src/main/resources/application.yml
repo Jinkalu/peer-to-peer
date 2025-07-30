@@ -30,3 +30,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         enable_lazy_load_no_trans: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret: your_jwt_secret_key_j34jh456hg6jhhg32h2g443g34jg12324jk22jk42jk3kj32g24jg54jg3jh6gjhgfh2gfh1f423v4
+  expiration: 86400000

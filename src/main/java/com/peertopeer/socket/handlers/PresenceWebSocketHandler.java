@@ -1,28 +1,26 @@
-package com.peertopeer.config.handlers;
+package com.peertopeer.socket.handlers;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.peertopeer.service.ChatService;
 import com.peertopeer.service.ConversationService;
 import com.peertopeer.service.PresenceService;
+import com.peertopeer.utils.PeerUtils;
+import com.peertopeer.vo.MessageResponseVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.peertopeer.utils.PeerUtils.getParam;
-
 @Slf4j
 @Component
-public class PresenceWebSocketHandler extends TextWebSocketHandler {
+public class PresenceWebSocketHandler extends BaseAuthenticatedWebSocketHandler {
 
     private final PresenceService presenceService;
     private final ConversationService conversationService;
@@ -41,53 +39,48 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
 
     @Async
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String connectedUser = getParam(session, "user");
-        String type = getParam(session, "type");
-
+    protected void onAuthenticatedConnection(WebSocketSession session, String username, String userId) throws Exception {
+        String type = PeerUtils.getParam(session, "type");
         if ("ping".equals(type)) {
-            if (connectedUser != null) {
-                presenceService.markOnline(connectedUser);
-                notifyUserStatus(connectedUser, true);
-            }
+            presenceService.markOnline(userId);
+            notifyUserStatus(userId, true);
         } else if ("subscribe".equals(type)) {
-            String target = getParam(session, "target");
-            String convoId = getParam(session, "convoId");
+            String target = PeerUtils.getParam(session, "target");
+            String convoId = PeerUtils.getParam(session, "convoId");
             if (target != null) {
                 subscribers.computeIfAbsent(target, k -> ConcurrentHashMap.newKeySet()).add(session);
-                Long count = conversationService.unreadCountInConvo(Long.valueOf(connectedUser), Long.valueOf(convoId));
+                Long count = conversationService.unreadCountInConvo(Long.valueOf(userId), Long.valueOf(convoId));
                 boolean isOnline = presenceService.isOnline(target);
-
-                Map<String, Object> message = Map.of(
-                        "conversationId", convoId,
-                        "user", target,
-                        "online", isOnline,
-                        "unreadCount", count
-                );
-                String json = new ObjectMapper().writeValueAsString(message);
+                MessageResponseVO message = MessageResponseVO.builder()
+                        .conversationId(convoId)
+                        .user(target)
+                        .online(isOnline)
+                        .unreadCount(count)
+                        .build();
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                String json = mapper.writeValueAsString(message);
                 session.sendMessage(new TextMessage(json));
             }
         }
-        session.getAttributes().put("userId", connectedUser);
+
+        userSessions.put(userId, session);
+        session.getAttributes().put("userId", userId);
     }
 
     @Async
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String disconnectedUser = getUserBySession(session);
-        if (disconnectedUser != null) {
-            presenceService.markOffline(disconnectedUser);
-            notifyUserStatus(disconnectedUser, false);
-        }
+    protected void onAuthenticatedDisconnection(WebSocketSession session, String username, String userId, CloseStatus status) throws Exception {
+        presenceService.markOffline(userId);
+        notifyUserStatus(userId, false);
         subscribers.values().forEach(set -> set.remove(session));
+        userSessions.remove(userId);
     }
-
 
     private String getUserBySession(WebSocketSession session) {
         Object userId = session.getAttributes().get("userId");
         return userId != null ? userId.toString() : null;
     }
-
 
     private void notifyUserStatus(String user, boolean isOnline) {
         Set<WebSocketSession> subs = subscribers.getOrDefault(user, Set.of());
@@ -96,17 +89,16 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
             try {
                 if (session.isOpen()) {
                     synchronized (session) {
-
-                        Map<String, Object> message = Map.of(
-                                "user", user,
-                                "online", isOnline
-                        );
+                        MessageResponseVO message = MessageResponseVO.builder()
+                                .user(user)
+                                .online(isOnline)
+                                .build();
                         String json = new ObjectMapper().writeValueAsString(message);
                         session.sendMessage(new TextMessage(json));
                     }
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Error sending presence notification", e);
             }
         }
     }
@@ -114,10 +106,10 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
     public static WebSocketSession getSubscribed(String userId, String subscribedBy) {
         return subscribers.getOrDefault(userId, Set.of())
                 .stream()
-                .filter(webSocketSession ->
-                        subscribedBy.equals(getParam(webSocketSession, "user")))
+                .filter(webSocketSession -> {
+                    String sessionUserId = (String) webSocketSession.getAttributes().get("userId");
+                    return subscribedBy.equals(sessionUserId);
+                })
                 .findFirst().orElse(null);
     }
-
-
 }

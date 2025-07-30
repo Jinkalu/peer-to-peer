@@ -3,21 +3,22 @@ package com.peertopeer.service.impl;
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Message;
 import com.peertopeer.enums.ConversationType;
-import com.peertopeer.enums.MessageReaction;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.MessageRepository;
+import com.peertopeer.repository.MessageStatusRepository;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.utils.ChatUtils;
 import com.peertopeer.vo.MessageVO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.CharUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
-import java.util.*;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 
 import static com.peertopeer.utils.PeerUtils.isValidEmoji;
 
@@ -25,9 +26,10 @@ import static com.peertopeer.utils.PeerUtils.isValidEmoji;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private final MessageRepository messageRepository;
-    private final ConversationsRepository conversationsRepository;
     private final UserRepository userRepository;
+    private final MessageRepository messageRepository;
+    private final MessageStatusRepository messageStatusRepository;
+    private final ConversationsRepository conversationsRepository;
 
 
     @Override
@@ -36,7 +38,8 @@ public class ChatServiceImpl implements ChatService {
         return messages.stream()
                 .map(message -> {
                     MessageVO messageVO = ChatUtils.mapToMessageVO(message);
-                    messageVO.setSenderUsername(userRepository.findById(Long.valueOf(message.getSenderUUID())).get().getUsername());
+                    messageVO.setSenderUsername(userRepository.findById(Long.valueOf(message.getSenderUUID()))
+                            .get().getUsername());
                     return messageVO;
                 }).toList();
 
@@ -58,40 +61,47 @@ public class ChatServiceImpl implements ChatService {
     @Transactional(rollbackOn = Exception.class)
     public Long saveMessage(String conversationId, String fromUser, String msg, MessageStatus status) {
         conversationsRepository.updateUpdatedAtById(System.currentTimeMillis(), Long.valueOf(conversationId));
-        return messageRepository.saveAndFlush(Message.builder()
+        Message message = messageRepository.saveAndFlush(Message.builder()
                 .message(msg)
                 .conversation(conversationsRepository.findById(Long.valueOf(conversationId)).get())
                 .senderUUID(fromUser)
                 .status(status)
-                .build()).getId();
+                .build());
+        messageStatusRepository.save(com.peertopeer.entity.MessageStatus.builder()
+                .status(status)
+                .message(message)
+                .updatedAt(Instant.now().toEpochMilli())
+                .build());
+        return message.getId();
     }
 
     @Override
     public void updateMessageStatus(String userId) {
-        messageRepository.updateStatusBySenderUUIDAndStatus(MessageStatus.DELIVERED.name(), Long.valueOf(userId), MessageStatus.SEND.name());
+        messageRepository.updateStatusBySenderUUIDAndStatus(MessageStatus.DELIVERED.name(), Long.valueOf(userId),
+                MessageStatus.SEND.name());
     }
 
     @Override
     public void updateMessageChatStatus(long convoId, String user) {
-        messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN, convoId, user, MessageStatus.DELIVERED);
+        messageRepository.updateStatusByConversation_IdAndSenderUUIDNotAndStatus(MessageStatus.SEEN, convoId,
+                user, MessageStatus.DELIVERED);
     }
 
     @Override
     public Long unreadCount(String sender, String receiver) {
-
         return messageRepository.countUnreadMessages(sender, Long.valueOf(receiver));
     }
 
     @Override
     public void messageReaction(Long messageId, String reaction) {
-        if (reaction == null || reaction.isEmpty()){
-            messageRepository.updateReactionById(reaction,messageId);
+        if (reaction == null || reaction.isEmpty()) {
+            messageRepository.updateReactionById(reaction, messageId);
             return;
         }
         if (!isValidEmoji(reaction)) {
             throw new IllegalArgumentException("Only emojis are allowed!");
         }
-        messageRepository.updateReactionById(reaction,messageId);
+        messageRepository.updateReactionById(reaction, messageId);
     }
 
 

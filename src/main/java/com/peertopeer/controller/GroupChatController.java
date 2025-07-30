@@ -37,8 +37,8 @@ public class GroupChatController {
 
     @GetMapping("/list-members/{conversationId}")
     public GroupVO membersList(@PathVariable Long conversationId,
-                               @RequestParam int page,
-                               @RequestParam int size) {
+                               @RequestParam(defaultValue = "0") int page,
+                               @RequestParam(defaultValue = "20") int size) {
         return groupChatService.membersList(conversationId, page, size);
     }
 
