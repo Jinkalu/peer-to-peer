@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import com.peertopeer.service.JwtService;
 import com.peertopeer.service.UserService;
 import com.peertopeer.entity.Conversations;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.repository.ConversationsRepository;
@@ -21,17 +23,18 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder encoder;
-    private final ConversationsRepository conversationsRepository;
+    private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
+    private final ConversationsRepository conversationsRepository;
 
     @Override
     public String login(UserLoginVO request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),
+        Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),
                 request.getPassword()));
         Users users = userRepository.findByUsername(request.getUsername()).orElseThrow();
+        SecurityContextHolder.getContext().setAuthentication(authenticate);
         return jwtService.generateToken(users);
     }
 

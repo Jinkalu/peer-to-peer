@@ -1,22 +1,21 @@
 package com.peertopeer.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.peertopeer.enums.MessageStatus;
-import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.service.*;
-import com.peertopeer.vo.MessageResponseVO;
 import lombok.RequiredArgsConstructor;
+import com.peertopeer.enums.MessageStatus;
+import com.peertopeer.vo.MessageResponseVO;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.io.IOException;
 
-import static com.peertopeer.socket.handlers.PrivateChatWebSocketHandler.getUserSession;
-import static com.peertopeer.socket.handlers.PresenceWebSocketHandler.getSubscribed;
 import static com.peertopeer.utils.PeerUtils.*;
+import static com.peertopeer.socket.handlers.PresenceWebSocketHandler.getSubscribed;
+import static com.peertopeer.socket.handlers.PrivateChatWebSocketHandler.getUserSession;
 
 @Service
 @RequiredArgsConstructor

@@ -10,8 +10,11 @@ import com.peertopeer.utils.JwtProperties;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Date;
 import java.security.Key;
+import java.util.Map;
 
 
 @Service
@@ -23,18 +26,28 @@ public class JwtServiceImpl implements JwtService {
 
     @PostConstruct
     public void init() {
-        key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes());
+        String secret = jwtProperties.getSecret();
+        if (secret.length() < 32) {
+            throw new IllegalArgumentException("Secret key must be at least 256 bits long.");
+        }
+        key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     @Override
     public String generateToken(Users user) {
         return Jwts.builder()
+                .setClaims(setClaims(user))
                 .setId(String.valueOf(user.getId()))
                 .setSubject(user.getUsername())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtProperties.getExpiration()))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    private Map<String, ?> setClaims(Users user) {
+        return Map.of("userID",user.getId(),
+                "username",user.getUsername());
     }
 
     @Override
@@ -44,7 +57,7 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public String extractId(String token) {
+    public  String extractId(String token) {
         return Jwts.parserBuilder().setSigningKey(key).build()
                 .parseClaimsJws(token).getBody().getId();
     }
@@ -60,4 +73,18 @@ public class JwtServiceImpl implements JwtService {
         return Jwts.parserBuilder().setSigningKey(key).build()
                 .parseClaimsJws(token).getBody().getExpiration().before(new Date());
     }
+
+
+   /* public static String generateSecretKey() {
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] secretKeyBytes = new byte[32]; // 256 bits = 32 bytes
+        secureRandom.nextBytes(secretKeyBytes);
+        return Base64.getEncoder().encodeToString(secretKeyBytes);
+    }
+
+    public static void main(String[] args) {
+        String secretKey = generateSecretKey();
+        System.out.println("Generated Secret Key: " + secretKey);
+    }*/
+
 }

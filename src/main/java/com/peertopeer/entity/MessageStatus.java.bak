@@ -5,13 +5,13 @@ import lombok.*;
 
 import java.time.Instant;
 
-@Entity
+//@Entity
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "message_status")
+//@Table(name = "message_status")
 public class MessageStatus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

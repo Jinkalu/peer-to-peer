@@ -71,7 +71,7 @@ public class PrivateChatWebSocketHandler extends BaseAuthenticatedWebSocketHandl
 
     @Async
     @Override
-    protected void onAuthenticatedDisconnection(WebSocketSession session, String username, String userId, CloseStatus status) throws Exception {
+    protected void onAuthenticatedDisconnection(WebSocketSession session, String username, String userId, CloseStatus status) {
         String conversationId = session.getAttributes().get("conversationId").toString();
         presenceService.offScreen(userId, conversationId);
         userSessions.remove(userId);
@@ -84,8 +84,11 @@ public class PrivateChatWebSocketHandler extends BaseAuthenticatedWebSocketHandl
                         try {
                             WebSocketSession peerSession = getUserSession(receiver);
                             if (peerSession != null && peerSession.isOpen()) {
+                                MessageResponseVO message = MessageResponseVO.builder()
+                                        .type("receiverStatus")
+                                        .build();
                                 peerSession.sendMessage(new TextMessage(
-                                        new ObjectMapper().writeValueAsString(Map.of("type", "receiverStatus"))));
+                                        new ObjectMapper().writeValueAsString(message)));
                             }
                         } catch (IOException e) {
                             log.error("Error sending receiver status", e);
@@ -98,12 +101,12 @@ public class PrivateChatWebSocketHandler extends BaseAuthenticatedWebSocketHandl
         if (presenceService.isOnline(receiver) && presenceService.isOnScreen(receiver, conversationId)) {
             WebSocketSession peerSession = getUserSession(receiver);
             if (peerSession != null && peerSession.isOpen()) {
-                MessageResponseVO response = MessageResponseVO.builder()
+                MessageResponseVO message = MessageResponseVO.builder()
                         .type("reload")
                         .conversationId(conversationId)
                         .receiver(receiver)
                         .build();
-                peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(response)));
+                peerSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(message)));
             }
         }
     }

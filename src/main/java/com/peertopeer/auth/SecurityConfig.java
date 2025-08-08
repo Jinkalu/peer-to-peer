@@ -21,8 +21,8 @@ import org.springframework.security.config.annotation.authentication.configurati
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserRepository userRepository;
     private final JwtAuthFilter jwtAuthFilter;
+    private final UserRepository userRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

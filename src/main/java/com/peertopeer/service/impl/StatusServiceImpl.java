@@ -34,8 +34,8 @@ public class StatusServiceImpl implements StatusService {
                            String messageId, String conversationId) throws IOException {
         MessageResponseVO deliveredStatus = MessageResponseVO.builder()
                 .conversationId(conversationId)
-                .statusReceiver(sender)
-                .msgId(messageId)
+                .sender(sender)
+                .messageId(messageId)
                 .type("status")
                 .status(status)
                 .build();
@@ -64,7 +64,7 @@ public class StatusServiceImpl implements StatusService {
         if (peerSession != null && peerSession.isOpen()) {
             MessageResponseVO typingMessage = MessageResponseVO.builder()
                     .type("typing")
-                    .from(fromUser)
+                    .sender(fromUser)
                     .isTyping(payload.get("isTyping"))
                     .build();
             String json = new ObjectMapper().writeValueAsString(typingMessage);
@@ -85,7 +85,7 @@ public class StatusServiceImpl implements StatusService {
                     try {
                         MessageResponseVO message = MessageResponseVO.builder()
                                 .type("typing")
-                                .from(sender)
+                                .sender(sender)
                                 .isTyping(payload.get("isTyping"))
                                 .build();
                         String json = new ObjectMapper().writeValueAsString(message);

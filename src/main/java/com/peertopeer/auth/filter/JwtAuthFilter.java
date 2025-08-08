@@ -1,5 +1,6 @@
 package com.peertopeer.auth.filter;
 
+import com.peertopeer.entity.Users;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.JwtService;
 import jakarta.servlet.FilterChain;
@@ -40,7 +41,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         token = authHeader.substring(7);
         username = jwtService.extractUsername(token);
-
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userRepository.findByUsername(username)
                     .orElseThrow();

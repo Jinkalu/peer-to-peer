@@ -25,7 +25,9 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationsRepository conversationsRepository;
 
     @Override
-    public List<ConversationVO> listConversations(Long userId) {
+    public List<ConversationVO> listConversations() {
+        Users user = JwtService.getUserDetails();
+        Long userId = user.getId();
         List<Conversations> conversations = conversationsRepository.findByUsers_Id(userId);
         return conversations.stream()
                 .map(conversation -> {
@@ -51,11 +53,10 @@ public class ConversationServiceImpl implements ConversationService {
 
     @Override
     public Long createConversation(Long peerUserId) {
-        String currentUsername = JwtService.getCurrentUserUUID();
-        Users user = userRepository.findByUsername(currentUsername).orElseThrow();
-        Long sender = user.getId();
-        return  conversationsRepository.saveAndFlush(Conversations.builder()
-                .users(new HashSet<>(userRepository.findAllById(List.of(sender, peerUserId))))
+        Users currentUser = JwtService.getUserDetails();
+        List<Users> userList = userRepository.findAllById(List.of(currentUser.getId(), peerUserId));
+        return conversationsRepository.saveAndFlush(Conversations.builder()
+                .users(new HashSet<>(userList))
                 .type(ConversationType.PRIVATE_CHAT)
                 .build()).getId();
     }

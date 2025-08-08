@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 public class MessageResponseVO {
     private String conversationId;
     private String sender;
+    private String senderUsername;
     private String receiver;
     private String messageId;
     private String msg;
@@ -22,10 +23,6 @@ public class MessageResponseVO {
     private Long unreadCount;
     private Boolean online;
     private String type;
-    private String from;
-    private String fromUsername;
-    private String statusReceiver;
-    private String msgId;
     private MessageStatus status;
     private Object isTyping;
 }

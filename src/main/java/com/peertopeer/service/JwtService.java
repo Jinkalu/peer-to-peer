@@ -1,9 +1,11 @@
 package com.peertopeer.service;
 
 import com.peertopeer.entity.Users;
+import com.peertopeer.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public interface JwtService {
+
     String generateToken(Users username);
 
     String extractUsername(String token);
@@ -16,5 +18,11 @@ public interface JwtService {
 
     static String getCurrentUserUUID() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+    static Users getUserDetails(){
+        return (Users) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
     }
 }

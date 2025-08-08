@@ -37,10 +37,14 @@ import static com.peertopeer.utils.PeerUtils.isEmpty;
 @RequiredArgsConstructor
 public class GroupChatServiceImpl implements GroupChatService {
 
-    private final UserRepository userRepository;
-    private final ConversationsRepository conversationsRepository;
+
     private final ChatService chatService;
+    private final UserRepository userRepository;
     private final PresenceService presenceService;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    private final ConversationsRepository conversationsRepository;
 
 
     @Override
@@ -119,11 +123,11 @@ public class GroupChatServiceImpl implements GroupChatService {
                     try {
                         MessageResponseVO message = MessageResponseVO.builder()
                                 .type("msg")
-                                .from(user)
-                                .fromUsername((String) session.getAttributes().get("username"))
+                                .sender(user)
+                                .senderUsername((String) session.getAttributes().get("username"))
                                 .msg(msg)
                                 .build();
-                        String json = new ObjectMapper().writeValueAsString(message);
+                        String json = mapper.writeValueAsString(message);
                         peerSession.sendMessage(new TextMessage(json));
                     } catch (IOException e) {
                         log.info("Exception occurred while sending to group {}", room);

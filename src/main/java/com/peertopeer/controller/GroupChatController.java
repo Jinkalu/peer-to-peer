@@ -17,7 +17,6 @@ import java.util.List;
 public class GroupChatController {
 
     private final GroupChatService groupChatService;
-    private final ChatService chatService;
 
     @PostMapping("/create")
     public GroupVO createGroup(@RequestBody GroupCreationVO requestBody) {

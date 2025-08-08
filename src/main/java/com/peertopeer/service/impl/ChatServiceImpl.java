@@ -1,23 +1,22 @@
 package com.peertopeer.service.impl;
 
-import com.peertopeer.entity.Conversations;
-import com.peertopeer.entity.Message;
-import com.peertopeer.enums.ConversationType;
-import com.peertopeer.enums.MessageStatus;
-import com.peertopeer.repository.ConversationsRepository;
-import com.peertopeer.repository.MessageRepository;
-import com.peertopeer.repository.MessageStatusRepository;
-import com.peertopeer.repository.UserRepository;
-import com.peertopeer.service.ChatService;
-import com.peertopeer.utils.ChatUtils;
+import com.peertopeer.service.JwtService;
 import com.peertopeer.vo.MessageVO;
-import jakarta.transaction.Transactional;
+import com.peertopeer.entity.Message;
+import com.peertopeer.utils.ChatUtils;
 import lombok.RequiredArgsConstructor;
+import jakarta.transaction.Transactional;
+import com.peertopeer.enums.MessageStatus;
+import com.peertopeer.service.ChatService;
+import com.peertopeer.entity.Conversations;
+import com.peertopeer.enums.ConversationType;
 import org.springframework.stereotype.Service;
+import com.peertopeer.repository.UserRepository;
+import com.peertopeer.repository.MessageRepository;
+import com.peertopeer.repository.ConversationsRepository;
 
-import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Optional;
 
 import static com.peertopeer.utils.PeerUtils.isValidEmoji;
@@ -28,9 +27,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
-    private final MessageStatusRepository messageStatusRepository;
     private final ConversationsRepository conversationsRepository;
-
 
     @Override
     public List<MessageVO> getChatHistory(String conversationId) {
@@ -42,7 +39,6 @@ public class ChatServiceImpl implements ChatService {
                             .get().getUsername());
                     return messageVO;
                 }).toList();
-
     }
 
     @Override
@@ -50,7 +46,6 @@ public class ChatServiceImpl implements ChatService {
         Long sender = Long.valueOf(user);
         Long receiver = Long.valueOf(target);
         Optional<Long> byUsersIdAndUsersId = conversationsRepository.findByUsers_IdAndUsers_Id(sender, receiver);
-
         return byUsersIdAndUsersId.orElseGet(() -> conversationsRepository.saveAndFlush(Conversations.builder()
                 .users(new HashSet<>(userRepository.findAllById(List.of(sender, receiver))))
                 .type(ConversationType.PRIVATE_CHAT)
@@ -67,11 +62,11 @@ public class ChatServiceImpl implements ChatService {
                 .senderUUID(fromUser)
                 .status(status)
                 .build());
-        messageStatusRepository.save(com.peertopeer.entity.MessageStatus.builder()
+  /*      messageStatusRepository.save(com.peertopeer.entity.MessageStatus.builder()
                 .status(status)
                 .message(message)
                 .updatedAt(Instant.now().toEpochMilli())
-                .build());
+                .build());*/
         return message.getId();
     }
 
@@ -102,6 +97,11 @@ public class ChatServiceImpl implements ChatService {
             throw new IllegalArgumentException("Only emojis are allowed!");
         }
         messageRepository.updateReactionById(reaction, messageId);
+    }
+
+    @Override
+    public void deleteMessage(Long messageId) {
+
     }
 
 

@@ -39,7 +39,8 @@ public class PresenceWebSocketHandler extends BaseAuthenticatedWebSocketHandler 
 
     @Async
     @Override
-    protected void onAuthenticatedConnection(WebSocketSession session, String username, String userId) throws Exception {
+    protected void onAuthenticatedConnection(WebSocketSession session, String username,
+                                             String userId) throws Exception {
         String type = PeerUtils.getParam(session, "type");
         if ("ping".equals(type)) {
             presenceService.markOnline(userId);
@@ -82,6 +83,7 @@ public class PresenceWebSocketHandler extends BaseAuthenticatedWebSocketHandler 
         return userId != null ? userId.toString() : null;
     }
 
+    @Async
     private void notifyUserStatus(String user, boolean isOnline) {
         Set<WebSocketSession> subs = subscribers.getOrDefault(user, Set.of());
 

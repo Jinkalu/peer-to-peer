@@ -15,6 +15,11 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/* *
+* For authenticating websocket handshake
+* */
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
