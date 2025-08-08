@@ -54,4 +54,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Modifying
     @Query("update Message m set m.reaction = ?1 where m.id = ?2")
     void updateReactionById(String reaction, Long id);
+
+    @Transactional
+    @Modifying
+    @Query("update Message m set m.status = ?1 where m.id = ?2")
+    void updateStatusById(MessageStatus status, Long id);
 }

@@ -1,19 +1,21 @@
 package com.peertopeer.service.impl;
 
-import com.peertopeer.service.JwtService;
 import com.peertopeer.vo.MessageVO;
 import com.peertopeer.entity.Message;
 import com.peertopeer.utils.ChatUtils;
 import lombok.RequiredArgsConstructor;
 import jakarta.transaction.Transactional;
+import com.peertopeer.service.JwtService;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.enums.ConversationType;
 import org.springframework.stereotype.Service;
 import com.peertopeer.repository.UserRepository;
+import com.peertopeer.entity.GroupMessageReaction;
 import com.peertopeer.repository.MessageRepository;
 import com.peertopeer.repository.ConversationsRepository;
+import com.peertopeer.repository.GroupMessageReactionRepository;
 
 import java.util.List;
 import java.util.HashSet;
@@ -28,6 +30,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final ConversationsRepository conversationsRepository;
+    private final GroupMessageReactionRepository groupMessageReactionRepository;
 
     @Override
     public List<MessageVO> getChatHistory(String conversationId) {
@@ -62,11 +65,6 @@ public class ChatServiceImpl implements ChatService {
                 .senderUUID(fromUser)
                 .status(status)
                 .build());
-  /*      messageStatusRepository.save(com.peertopeer.entity.MessageStatus.builder()
-                .status(status)
-                .message(message)
-                .updatedAt(Instant.now().toEpochMilli())
-                .build());*/
         return message.getId();
     }
 
@@ -88,7 +86,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public void messageReaction(Long messageId, String reaction) {
+    public void messageReaction(Long messageId, String reaction, String type) {
         if (reaction == null || reaction.isEmpty()) {
             messageRepository.updateReactionById(reaction, messageId);
             return;
@@ -96,12 +94,20 @@ public class ChatServiceImpl implements ChatService {
         if (!isValidEmoji(reaction)) {
             throw new IllegalArgumentException("Only emojis are allowed!");
         }
-        messageRepository.updateReactionById(reaction, messageId);
+        if (type.equals(ConversationType.GROUP_CHAT.name())) {
+            groupMessageReactionRepository.save(GroupMessageReaction.builder()
+                    .reaction(reaction)
+                    .user(JwtService.getUserDetails())
+                    .message(messageRepository.findById(messageId).orElseThrow())
+                    .build());
+        } else {
+            messageRepository.updateReactionById(reaction, messageId);
+        }
     }
 
     @Override
     public void deleteMessage(Long messageId) {
-
+        messageRepository.updateStatusById(MessageStatus.DELETED, messageId);
     }
 
 

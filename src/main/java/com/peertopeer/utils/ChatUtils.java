@@ -1,6 +1,7 @@
 package com.peertopeer.utils;
 
 import com.peertopeer.entity.Conversations;
+import com.peertopeer.entity.GroupMessageReaction;
 import com.peertopeer.entity.Message;
 import com.peertopeer.enums.ConversationType;
 import com.peertopeer.vo.ConversationVO;
@@ -10,6 +11,7 @@ import com.peertopeer.entity.Users;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 
 public class ChatUtils {
@@ -21,12 +23,16 @@ public class ChatUtils {
                 .build();
     }
 
-    public static MessageVO mapToMessageVO(Message message){
+    public static MessageVO mapToMessageVO(Message message) {
         return MessageVO.builder()
                 .id(message.getId())
                 .senderUUID(message.getSenderUUID())
+                .reaction(message.getReaction())
                 .status(message.getStatus())
                 .message(message.getMessage())
+                .reactions(message.getReactions().stream()
+                        .map(GroupMessageReaction::getReaction)
+                        .collect(Collectors.toSet()))
                 .createdAt(message.getCreatedAt())
                 .build();
     }

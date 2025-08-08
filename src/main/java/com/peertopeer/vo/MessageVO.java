@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -29,6 +30,7 @@ public class MessageVO implements Serializable {
     private Integer sourceId;
     private String sourceType;
     private MessageStatus status;
+    private Set<String> reactions;
     private Long createdAt;
     private Long updateAt;
 }

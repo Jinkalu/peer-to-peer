@@ -22,8 +22,8 @@ public class ChatController {
     private final ConversationService conversationService;
 
     @PostMapping("/create/{peerUserId}")
-    public Long createConversation(@PathVariable Long peerUserId){
-      return conversationService.createConversation(peerUserId);
+    public Long createConversation(@PathVariable Long peerUserId) {
+        return conversationService.createConversation(peerUserId);
     }
 
     @GetMapping("/chat-history")
@@ -44,7 +44,8 @@ public class ChatController {
 
     @PostMapping("/reaction/{messageId}")
     public void messageReaction(@PathVariable Long messageId,
+                                @RequestParam(required = false) String type,
                                 @RequestParam(required = false) String reaction) {
-        chatService.messageReaction(messageId,reaction);
+        chatService.messageReaction(messageId, reaction, type);
     }
 }

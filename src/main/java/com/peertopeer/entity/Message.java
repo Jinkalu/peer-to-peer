@@ -8,6 +8,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -17,6 +19,7 @@ import java.time.Instant;
 @AllArgsConstructor
 @Table(name = "messages")
 public class Message {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -24,12 +27,11 @@ public class Message {
     @Column(nullable = false)
     private String senderUUID;
 
-//    private String receiverUUID; // Nullable for group chats
-
     @Column(nullable = false, length = 2000) // Increased length for long messages
     private String message;
 
     private String mediaURL;
+
     private String reaction;
 
     @Enumerated(EnumType.STRING)
@@ -47,10 +49,13 @@ public class Message {
     private Long updatedAt;
 
     @JsonIgnore
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
-    @ToString.Exclude
     private Conversations conversation;
+
+    @OneToMany(mappedBy = "message")
+    private Set<GroupMessageReaction> reactions = new HashSet<>();// For group message
 
     @PrePersist
     protected void onCreate() {
@@ -61,6 +66,4 @@ public class Message {
     protected void onUpdate() {
         this.updatedAt = Instant.now().toEpochMilli();
     }
-
-
 }
