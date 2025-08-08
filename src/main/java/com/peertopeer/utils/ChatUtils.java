@@ -33,6 +33,7 @@ public class ChatUtils {
                 .reactions(message.getReactions().stream()
                         .map(GroupMessageReaction::getReaction)
                         .collect(Collectors.toSet()))
+                .replayTo(mapToMessageVO(message.getReplayTo()))
                 .createdAt(message.getCreatedAt())
                 .build();
     }

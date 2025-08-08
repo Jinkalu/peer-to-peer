@@ -34,6 +34,10 @@ public class Message {
 
     private String reaction;
 
+    @ManyToOne
+    @JoinColumn(name = "replay_to_id")
+    private Message replayTo;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MessageStatus status = MessageStatus.SEND; // Default

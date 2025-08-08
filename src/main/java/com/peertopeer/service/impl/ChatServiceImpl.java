@@ -19,6 +19,7 @@ import com.peertopeer.repository.GroupMessageReactionRepository;
 
 import java.util.List;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.peertopeer.utils.PeerUtils.isValidEmoji;
@@ -57,12 +58,14 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public Long saveMessage(String conversationId, String fromUser, String msg, MessageStatus status) {
+    public Long saveMessage(String conversationId, String fromUser, String msg, String replayTo, MessageStatus status) {
         conversationsRepository.updateUpdatedAtById(System.currentTimeMillis(), Long.valueOf(conversationId));
         Message message = messageRepository.saveAndFlush(Message.builder()
                 .message(msg)
                 .conversation(conversationsRepository.findById(Long.valueOf(conversationId)).get())
                 .senderUUID(fromUser)
+                .replayTo(Objects.nonNull(replayTo) ?
+                        messageRepository.findById(Long.valueOf(replayTo)).orElseThrow() : null)
                 .status(status)
                 .build());
         return message.getId();

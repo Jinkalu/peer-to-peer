@@ -14,7 +14,7 @@ public interface ChatService {
 
     Long create(String user, String target);
 
-    Long saveMessage(String conversationId, String fromUser, String msg, MessageStatus status);
+    Long saveMessage(String conversationId, String fromUser, String msg, String replayTo, MessageStatus status);
 
     void updateMessageStatus(String userId);
 

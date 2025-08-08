@@ -115,7 +115,7 @@ public class GroupChatServiceImpl implements GroupChatService {
         String user = (String) session.getAttributes().get("userId");
         String msg = payload.get("msg");
 
-        chatService.saveMessage(room, user, msg, MessageStatus.DELIVERED);
+        chatService.saveMessage(room, user, msg, msg, MessageStatus.DELIVERED);
         roomSessions.getOrDefault(room, Collections.emptySet()).stream()
                 .filter(peerSession -> peerSession.isOpen()
                         && !peerSession.getAttributes().get("userId").equals(user))

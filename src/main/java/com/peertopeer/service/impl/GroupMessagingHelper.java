@@ -6,10 +6,8 @@ import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.GroupChatService;
 import com.peertopeer.vo.MessageResponseVO;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -17,12 +15,10 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessions;
 import static com.peertopeer.utils.PeerUtils.getParam;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -46,9 +42,10 @@ public abstract class GroupMessagingHelper  implements GroupChatService {
         String room = getParam(session, "conversationId");
         String user = (String) session.getAttributes().get("userId");
         String msg = payload.get("msg");
+        String replayTo = payload.get("replayTo");
 
         // Save message to database
-        chatService.saveMessage(room, user, msg, MessageStatus.DELIVERED);
+        chatService.saveMessage(room, user, msg, replayTo, MessageStatus.DELIVERED);
 
         // Broadcast optimized
         broadcastMessageOptimized(room, user, msg, session);

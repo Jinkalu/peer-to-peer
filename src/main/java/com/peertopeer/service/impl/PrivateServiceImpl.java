@@ -65,7 +65,8 @@ public class PrivateServiceImpl implements PrivateChat {
         MessageStatus status = getMessageStatus(online, isOnScreen);
 
         String msg = payload.get("msg");
-        String messageId = String.valueOf(chatService.saveMessage(conversationId, sender, msg, status));
+        String replayTo = payload.get("replayTo");
+        String messageId = String.valueOf(chatService.saveMessage(conversationId, sender, replayTo, msg, status));
 
         if (online && isOnScreen) {
             MessageResponseVO response = MessageResponseVO.builder()
@@ -90,7 +91,7 @@ public class PrivateServiceImpl implements PrivateChat {
     private void messageNotification(String sender, String receiver, String conversationId) throws IOException {
         WebSocketSession subscribed = getSubscribed(sender, receiver);
         if (Objects.nonNull(subscribed) && subscribed.isOpen()) {
-            MessageResponseVO response= MessageResponseVO.builder()
+            MessageResponseVO response = MessageResponseVO.builder()
                     .user(sender)
                     .online(true)
                     .unreadCount(conversationService.unreadCountInConvo(Long.valueOf(sender),

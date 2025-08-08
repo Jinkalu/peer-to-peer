@@ -32,5 +32,6 @@ public class MessageVO implements Serializable {
     private MessageStatus status;
     private Set<String> reactions;
     private Long createdAt;
+    private MessageVO replayTo;
     private Long updateAt;
 }
