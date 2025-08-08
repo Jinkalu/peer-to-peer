@@ -63,4 +63,15 @@ public interface ConversationsRepository extends JpaRepository<Conversations, Lo
             m.status = 'DELIVERED'
             """, nativeQuery = true)
     Long unreadCount(String currentUserUid, Long conversationId);
+
+
+    @Query("""
+            SELECT u.id
+            FROM
+            Conversations c
+            JOIN c.users u
+            WHERE c.id = :conversationId
+            AND u.id != :userId
+            """)
+    Long findPeerUser(Long conversationId, Long userId);
 }

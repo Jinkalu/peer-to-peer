@@ -22,10 +22,11 @@ public class CacheConfig {
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(10000)
                 .expireAfterWrite(5, TimeUnit.MINUTES)
-                .recordStats() // Enable statistics
+                .recordStats()
         );
         return cacheManager;
     }
+
 
     // Optional: Scheduled task to cleanup expired entries
     @Scheduled(fixedRate = 60000) // Run every minute

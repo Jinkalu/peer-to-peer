@@ -28,4 +28,6 @@ public interface ChatService {
     Long unreadCount(String target, String connectedUser);
 
     void messageReaction(Long messageId, String reaction);
+
+    void deleteMessage(Long messageId);
 }

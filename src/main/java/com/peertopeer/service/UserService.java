@@ -6,10 +6,11 @@ import com.peertopeer.vo.UserVO;
 import java.util.List;
 
 public interface UserService {
-    Long
-    login(UserLoginVO request);
+    String login(UserLoginVO request);
 
     List<UserVO> userList(Long currentUserId);
 
     UserVO getUser(String username);
+
+    void register(UserVO user);
 }

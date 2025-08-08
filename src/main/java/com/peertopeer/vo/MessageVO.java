@@ -28,7 +28,6 @@ public class MessageVO implements Serializable {
     private String reaction;
     private Integer sourceId;
     private String sourceType;
-//    private StoryRepliesVO storyDetails;
     private MessageStatus status;
     private Long createdAt;
     private Long updateAt;

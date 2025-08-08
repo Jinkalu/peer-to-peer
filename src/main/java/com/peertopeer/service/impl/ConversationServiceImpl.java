@@ -1,15 +1,19 @@
 package com.peertopeer.service.impl;
 
 import com.peertopeer.entity.Conversations;
+import com.peertopeer.entity.Users;
 import com.peertopeer.enums.ConversationType;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ConversationService;
+import com.peertopeer.service.JwtService;
 import com.peertopeer.utils.ChatUtils;
 import com.peertopeer.vo.ConversationVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,7 +25,9 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationsRepository conversationsRepository;
 
     @Override
-    public List<ConversationVO> listConversations(Long userId) {
+    public List<ConversationVO> listConversations() {
+        Users user = JwtService.getUserDetails();
+        Long userId = user.getId();
         List<Conversations> conversations = conversationsRepository.findByUsers_Id(userId);
         return conversations.stream()
                 .map(conversation -> {
@@ -37,6 +43,22 @@ public class ConversationServiceImpl implements ConversationService {
     @Override
     public Long unreadCountInConvo(Long currentUserUid, Long conversationId) {
         return conversationsRepository.unreadCount(currentUserUid.toString(), conversationId);
+    }
+
+    @Override
+    @Cacheable(value = "peerUserCache", key = "#conversationId + '-' + #userId")
+    public String findPeerUser(Long conversationId, Long userId) {
+        return conversationsRepository.findPeerUser(conversationId, userId).toString();
+    }
+
+    @Override
+    public Long createConversation(Long peerUserId) {
+        Users currentUser = JwtService.getUserDetails();
+        List<Users> userList = userRepository.findAllById(List.of(currentUser.getId(), peerUserId));
+        return conversationsRepository.saveAndFlush(Conversations.builder()
+                .users(new HashSet<>(userList))
+                .type(ConversationType.PRIVATE_CHAT)
+                .build()).getId();
     }
 
 }

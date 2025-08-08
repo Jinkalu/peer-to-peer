@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.peertopeer.enums.MessageStatus;
 import com.peertopeer.service.PresenceService;
 import com.peertopeer.service.StatusService;
+import com.peertopeer.vo.MessageResponseVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-import static com.peertopeer.config.handlers.GroupChatWebSocketHandler.roomSessions;
-import static com.peertopeer.config.handlers.PrivateChatWebSocketHandler.getUserSession;
+import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessions;
+import static com.peertopeer.socket.handlers.PrivateChatWebSocketHandler.getUserSession;
 import static com.peertopeer.utils.PeerUtils.getParam;
 import static com.peertopeer.utils.PeerUtils.getPrivateChatId;
 
@@ -31,13 +32,13 @@ public class StatusServiceImpl implements StatusService {
     @Override
     public void sendStatus(MessageStatus status, String sender,
                            String messageId, String conversationId) throws IOException {
-        Map<String, Object> deliveredStatus = Map.of(
-                "conversationId", conversationId,
-                "statusReceiver", sender,
-                "msgId", messageId,
-                "type", "status",
-                "status", status
-        );
+        MessageResponseVO deliveredStatus = MessageResponseVO.builder()
+                .conversationId(conversationId)
+                .sender(sender)
+                .messageId(messageId)
+                .type("status")
+                .status(status)
+                .build();
         WebSocketSession senderSession = getUserSession(sender);
         if (senderSession != null && senderSession.isOpen()) {
             senderSession.sendMessage(new TextMessage(new ObjectMapper().writeValueAsString(deliveredStatus)));
@@ -47,7 +48,7 @@ public class StatusServiceImpl implements StatusService {
     @Override
     public void handleTypingStatus(WebSocketSession session, Map<String,
             String> payload) throws IOException {
-        String fromUser = getParam(session, "sender");
+        String fromUser = (String) session.getAttributes().get("userId");
         String toUser = payload.get("receiver");
 
 
@@ -61,11 +62,11 @@ public class StatusServiceImpl implements StatusService {
 
         WebSocketSession peerSession = getUserSession(toUser);
         if (peerSession != null && peerSession.isOpen()) {
-            Map<String, Object> typingMessage = Map.of(
-                    "type", "typing",
-                    "from", fromUser,
-                    "isTyping", payload.get("isTyping")
-            );
+            MessageResponseVO typingMessage = MessageResponseVO.builder()
+                    .type("typing")
+                    .sender(fromUser)
+                    .isTyping(payload.get("isTyping"))
+                    .build();
             String json = new ObjectMapper().writeValueAsString(typingMessage);
             synchronized (peerSession) {
                 peerSession.sendMessage(new TextMessage(json));
@@ -82,11 +83,11 @@ public class StatusServiceImpl implements StatusService {
                         && !peerSession.getAttributes().get("user").equals(sender))
                 .forEach(peerSession -> CompletableFuture.runAsync(() -> {
                     try {
-                        Map<String, Object> message = Map.of(
-                                "type", "typing",
-                                "from", sender,
-                                "isTyping", payload.get("isTyping")
-                        );
+                        MessageResponseVO message = MessageResponseVO.builder()
+                                .type("typing")
+                                .sender(sender)
+                                .isTyping(payload.get("isTyping"))
+                                .build();
                         String json = new ObjectMapper().writeValueAsString(message);
                         peerSession.sendMessage(new TextMessage(json));
                     } catch (IOException e) {

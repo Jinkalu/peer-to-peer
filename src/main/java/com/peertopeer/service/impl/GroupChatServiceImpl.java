@@ -9,12 +9,10 @@ import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ChatService;
 import com.peertopeer.service.GroupChatService;
+import com.peertopeer.service.JwtService;
 import com.peertopeer.service.PresenceService;
 import com.peertopeer.utils.ChatUtils;
-import com.peertopeer.vo.ConversationVO;
-import com.peertopeer.vo.GroupCreationVO;
-import com.peertopeer.vo.GroupVO;
-import com.peertopeer.vo.UserVO;
+import com.peertopeer.vo.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +28,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.peertopeer.config.handlers.GroupChatWebSocketHandler.roomSessions;
+import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessions;
 import static com.peertopeer.utils.PeerUtils.getParam;
 import static com.peertopeer.utils.PeerUtils.isEmpty;
 
@@ -39,10 +37,14 @@ import static com.peertopeer.utils.PeerUtils.isEmpty;
 @RequiredArgsConstructor
 public class GroupChatServiceImpl implements GroupChatService {
 
-    private final UserRepository userRepository;
-    private final ConversationsRepository conversationsRepository;
+
     private final ChatService chatService;
+    private final UserRepository userRepository;
     private final PresenceService presenceService;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    private final ConversationsRepository conversationsRepository;
 
 
     @Override
@@ -51,7 +53,8 @@ public class GroupChatServiceImpl implements GroupChatService {
                 .users(!CollectionUtils.isEmpty(request.getUsers()) ?
                         new HashSet<>(userRepository.findAllById(request.getUsers())) : null)
                 .type(ConversationType.GROUP_CHAT)
-                .createdBy(request.getUserId())
+                .createdBy(userRepository.findByUsername(JwtService.getCurrentUserUUID())
+                        .orElseThrow().getId())
                 .conversationName(request.getGroupName())
                 .build());
         return GroupVO.builder()
@@ -109,21 +112,22 @@ public class GroupChatServiceImpl implements GroupChatService {
     @Override
     public void groupMsg(WebSocketSession session, Map<String, String> payload) {
         String room = getParam(session, "conversationId");
-        String user = getParam(session, "sender");
+        String user = (String) session.getAttributes().get("userId");
         String msg = payload.get("msg");
 
         chatService.saveMessage(room, user, msg, MessageStatus.DELIVERED);
         roomSessions.getOrDefault(room, Collections.emptySet()).stream()
-                .filter(peerSession -> peerSession.isOpen() && !peerSession.getAttributes().get("user").equals(user))
+                .filter(peerSession -> peerSession.isOpen()
+                        && !peerSession.getAttributes().get("userId").equals(user))
                 .forEach(peerSession -> CompletableFuture.runAsync(() -> {
                     try {
-                        Map<String, Object> message = Map.of(
-                                "type", "msg",
-                                "from", user,
-                                "fromUsername", userRepository.findById(Long.valueOf(user)).get().getUsername(),
-                                "msg", msg
-                        );
-                        String json = new ObjectMapper().writeValueAsString(message);
+                        MessageResponseVO message = MessageResponseVO.builder()
+                                .type("msg")
+                                .sender(user)
+                                .senderUsername((String) session.getAttributes().get("username"))
+                                .msg(msg)
+                                .build();
+                        String json = mapper.writeValueAsString(message);
                         peerSession.sendMessage(new TextMessage(json));
                     } catch (IOException e) {
                         log.info("Exception occurred while sending to group {}", room);
@@ -139,14 +143,13 @@ public class GroupChatServiceImpl implements GroupChatService {
             roomSessions.computeIfAbsent(conversationId,
                     r -> ConcurrentHashMap.newKeySet()).add(session);
             session.getAttributes().put("room", conversationId);
-            session.getAttributes().put("user", getParam(session, "sender"));
         }
         return conversationId;
     }
 
     @Override
     public void removeUserFromRoom(WebSocketSession session) {
-        String user = (String) session.getAttributes().get("user");
+        String user = (String) session.getAttributes().get("userId");
         String conversationId = session.getAttributes().get("room").toString();
         presenceService.offScreen(user, conversationId);
 

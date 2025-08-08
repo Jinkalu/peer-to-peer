@@ -1,14 +1,20 @@
 package com.peertopeer.service.impl;
 
-import com.peertopeer.entity.Conversations;
-import com.peertopeer.repository.ConversationsRepository;
-import com.peertopeer.repository.UserRepository;
-import com.peertopeer.service.ConversationService;
-import com.peertopeer.service.UserService;
-import com.peertopeer.vo.UserLoginVO;
 import com.peertopeer.vo.UserVO;
+import com.peertopeer.entity.Users;
+import com.peertopeer.vo.UserLoginVO;
 import lombok.RequiredArgsConstructor;
+import com.peertopeer.service.JwtService;
+import com.peertopeer.service.UserService;
+import com.peertopeer.entity.Conversations;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import com.peertopeer.repository.UserRepository;
+import com.peertopeer.repository.ConversationsRepository;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,15 +23,22 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
+    private final JwtService jwtService;
+    private final PasswordEncoder encoder;
     private final UserRepository userRepository;
+    private final AuthenticationManager authenticationManager;
     private final ConversationsRepository conversationsRepository;
 
     @Override
-    public Long login(UserLoginVO request) {
-        return null;
+    public String login(UserLoginVO request) {
+        Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),
+                request.getPassword()));
+        Users users = userRepository.findByUsername(request.getUsername()).orElseThrow();
+        SecurityContextHolder.getContext().setAuthentication(authenticate);
+        return jwtService.generateToken(users);
     }
 
-    public List<Conversations> userConversations(Long currentUserId){
+    public List<Conversations> userConversations(Long currentUserId) {
         List<Conversations> conversations = conversationsRepository.findByUsers_Id(currentUserId);
 
         return null;
@@ -52,6 +65,14 @@ public class UserServiceImpl implements UserService {
                         .username(username)
                         .build())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Override
+    public void register(UserVO user) {
+        userRepository.save(Users.builder()
+                .username(user.getUsername())
+                .password(encoder.encode(user.getPassword()))
+                .build());
     }
 
 

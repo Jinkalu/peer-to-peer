@@ -6,7 +6,11 @@ import java.util.List;
 
 public interface ConversationService {
 
-    List<ConversationVO> listConversations(Long userId);
+    List<ConversationVO> listConversations();
 
     Long unreadCountInConvo(Long currentUserUid, Long conversationId);
+
+    String findPeerUser(Long aLong, Long aLong1);
+
+    Long createConversation(Long peerUserId);
 }
