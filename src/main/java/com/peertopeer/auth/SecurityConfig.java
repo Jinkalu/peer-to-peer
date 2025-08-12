@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/user/register",
+//                                "ws://**",
                                 "/api/v1/user/log-in",
                                 "/v2/api-docs",
                                 "/v3/api-docs",
@@ -41,9 +42,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/webjars/**",
                                 "/swagger-ui.html",
-                                "/chat/**",
-                                "/presence/**",
-                                "/group-chat/**")
+                                "/screen/**",
+                                "/js/**",
+                                "/css/**",
+                                "/favicon.ico")
                         .permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session ->

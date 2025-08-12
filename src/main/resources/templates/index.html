@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Login</title>
-    <link rel="stylesheet" th:href="@{css/index.css}">
+    <link rel="stylesheet" th:href="@{/css/index.css}">
 </head>
 <body>
 <div class="particles"></div>
 
 <div class="login-container">
+
     <div class="login-header">
         <h2>Welcome Back</h2>
         <p>Enter your username to continue</p>
@@ -17,13 +18,15 @@
 
     <div class="input-group">
         <input type="text" id="username" placeholder="Enter your username" spellcheck="false" />
+        <input type="password" id="password" placeholder="Enter your password" spellcheck="false" />
     </div>
 
     <button class="continue-btn" onclick="proceed()">
         <span class="btn-text">Continue</span>
     </button>
+
 </div>
 
-<script th:src="@{js/index.js}"></script>
+<script th:src="@{/js/index.js}"></script>
 </body>
 </html>

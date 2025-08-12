@@ -1,11 +1,12 @@
 (function () {
     const currentUser = localStorage.getItem("username");
     const currentUserId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
     if (!currentUser) return;
 
     let socket;
     function connectPingSocket() {
-        socket = new WebSocket(`ws://localhost:8080/presence?type=ping&user=${currentUserId}`);
+        socket = new WebSocket(`ws://localhost:8080/presence?token=${token}&type=ping`);
 
         socket.onopen = () => {
             console.log("Ping WebSocket connected");

@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/user")
@@ -23,8 +24,8 @@ public class UserController {
     }
 
     @PostMapping("/log-in")
-    public ResponseEntity<String> login(@RequestBody UserLoginVO user) {
-        return ResponseEntity.ok(userService.login(user));
+    public ResponseEntity<Map<String,String>> login(@RequestBody UserLoginVO user) {
+        return ResponseEntity.ok(Map.of("token", userService.login(user)));
     }
 
 
