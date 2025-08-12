@@ -1,24 +1,24 @@
 package com.peertopeer.service.impl;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.RemovalCause;
-import com.peertopeer.service.ChatService;
-import com.peertopeer.service.PresenceService;
-import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.ContextClosedEvent;
-import org.springframework.context.event.EventListener;
+import jakarta.annotation.PostConstruct;
+import com.peertopeer.service.ChatService;
 import org.springframework.stereotype.Service;
+import com.peertopeer.service.PresenceService;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.context.event.EventListener;
+import com.github.benmanes.caffeine.cache.RemovalCause;
+import org.springframework.context.event.ContextClosedEvent;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service

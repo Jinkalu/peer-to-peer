@@ -8,12 +8,14 @@ import com.peertopeer.vo.ConversationVO;
 import com.peertopeer.vo.MessageVO;
 import com.peertopeer.vo.UserVO;
 import com.peertopeer.entity.Users;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 
+@Slf4j
 public class ChatUtils {
 
     public static UserVO mapToMembersVO(Users member) {
@@ -24,6 +26,7 @@ public class ChatUtils {
     }
 
     public static MessageVO mapToMessageVO(Message message) {
+        log.info("message ID : : {}", message.getId());
         return MessageVO.builder()
                 .id(message.getId())
                 .senderUUID(message.getSenderUUID())
@@ -33,7 +36,23 @@ public class ChatUtils {
                 .reactions(message.getReactions().stream()
                         .map(GroupMessageReaction::getReaction)
                         .collect(Collectors.toSet()))
-                .replayTo(mapToMessageVO(message.getReplayTo()))
+                .replayTo(Objects.nonNull(message.getReplayTo()) ?
+                        mapToMessageVOWithoutNesting(message.getReplayTo()) : null)
+                .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    private static MessageVO mapToMessageVOWithoutNesting(Message message) {
+        return MessageVO.builder()
+                .id(message.getId())
+                .senderUUID(message.getSenderUUID())
+                .reaction(message.getReaction())
+                .status(message.getStatus())
+                .message(message.getMessage())
+                .reactions(message.getReactions().stream()
+                        .map(GroupMessageReaction::getReaction)
+                        .collect(Collectors.toSet()))
+                .replayTo(null)
                 .createdAt(message.getCreatedAt())
                 .build();
     }

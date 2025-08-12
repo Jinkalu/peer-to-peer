@@ -7,14 +7,14 @@ import lombok.RequiredArgsConstructor;
 import com.peertopeer.service.JwtService;
 import com.peertopeer.service.UserService;
 import com.peertopeer.entity.Conversations;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import com.peertopeer.repository.UserRepository;
+import org.springframework.security.core.Authentication;
 import com.peertopeer.repository.ConversationsRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;

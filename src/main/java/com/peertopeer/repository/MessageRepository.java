@@ -6,6 +6,7 @@ import com.peertopeer.enums.MessageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,8 +56,20 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("update Message m set m.reaction = ?1 where m.id = ?2")
     void updateReactionById(String reaction, Long id);
 
-    @Transactional
+
     @Modifying
-    @Query("update Message m set m.status = ?1 where m.id = ?2")
-    void updateStatusById(MessageStatus status, Long id);
+    @Transactional
+    @Query(value = """
+            UPDATE messages SET
+                status = CASE
+                    WHEN id = :messageId THEN 'DELETED'
+                    ELSE status
+                END,
+                replay_to_id = CASE
+                    WHEN replay_to_id = :messageId THEN NULL
+                    ELSE replay_to_id
+                END
+            WHERE id = :messageId OR replay_to_id = :messageId
+            """, nativeQuery = true)
+    void deleteMessageAndClearReplies(@Param("messageId") Long messageId);
 }

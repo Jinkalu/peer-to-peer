@@ -1,9 +1,9 @@
 package com.peertopeer.controller;
 
-import com.peertopeer.service.UserService;
-import com.peertopeer.vo.UserLoginVO;
 import com.peertopeer.vo.UserVO;
+import com.peertopeer.vo.UserLoginVO;
 import lombok.RequiredArgsConstructor;
+import com.peertopeer.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

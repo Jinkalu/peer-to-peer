@@ -1,26 +1,26 @@
 package com.peertopeer.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.peertopeer.enums.MessageStatus;
-import com.peertopeer.service.PresenceService;
-import com.peertopeer.service.StatusService;
-import com.peertopeer.vo.MessageResponseVO;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
+import com.peertopeer.enums.MessageStatus;
+import com.peertopeer.vo.MessageResponseVO;
+import com.peertopeer.service.StatusService;
+import com.peertopeer.service.PresenceService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
-import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessions;
-import static com.peertopeer.socket.handlers.PrivateChatWebSocketHandler.getUserSession;
 import static com.peertopeer.utils.PeerUtils.getParam;
 import static com.peertopeer.utils.PeerUtils.getPrivateChatId;
+import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessions;
+import static com.peertopeer.socket.handlers.PrivateChatWebSocketHandler.getUserSession;
 
 @Slf4j
 @Service

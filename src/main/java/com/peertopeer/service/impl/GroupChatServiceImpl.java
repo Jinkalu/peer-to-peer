@@ -11,6 +11,7 @@ import com.peertopeer.service.ChatService;
 import com.peertopeer.service.GroupChatService;
 import com.peertopeer.service.JwtService;
 import com.peertopeer.service.PresenceService;
+import com.peertopeer.utils.ApplicationProperties;
 import com.peertopeer.utils.ChatUtils;
 import com.peertopeer.vo.*;
 import jakarta.transaction.Transactional;
@@ -20,10 +21,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +45,7 @@ public class GroupChatServiceImpl implements GroupChatService {
     private final ChatService chatService;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
+    private final ApplicationProperties applicationProperties;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -114,8 +119,8 @@ public class GroupChatServiceImpl implements GroupChatService {
         String room = getParam(session, "conversationId");
         String user = (String) session.getAttributes().get("userId");
         String msg = payload.get("msg");
-
-        chatService.saveMessage(room, user, msg, msg, MessageStatus.DELIVERED);
+        String replayTo = payload.get("replayTo");
+        chatService.saveMessage(room, user, msg, replayTo, MessageStatus.DELIVERED);
         roomSessions.getOrDefault(room, Collections.emptySet()).stream()
                 .filter(peerSession -> peerSession.isOpen()
                         && !peerSession.getAttributes().get("userId").equals(user))
@@ -161,6 +166,32 @@ public class GroupChatServiceImpl implements GroupChatService {
                 if (sessions.isEmpty()) roomSessions.remove(room);
             }
         }
+    }
+
+    @Override
+    public String setGroupIcon(Long id, MultipartFile file) {
+        Conversations group = conversationsRepository.findByIdAndType(id, ConversationType.GROUP_CHAT)
+                .orElseThrow();
+        if (Objects.isNull(file)) {
+            group.setGroupIcon(null);
+            conversationsRepository.save(group);
+            log.info("Icon removed.");
+            return "Icon removed.";
+        } else {
+            try {
+                String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                File destFile = new File(applicationProperties.getFilepath() + fileName);
+                file.transferTo(destFile);
+
+                group.setGroupIcon(fileName);
+                group.setUpdatedAt(Instant.now().toEpochMilli());
+                conversationsRepository.save(group);
+                log.info("File uploaded and path saved.");
+            } catch (IOException e) {
+                log.error("Upload failed: {}", e.getMessage());
+            }
+        }
+        return "File uploaded and path saved.";
     }
 
 }

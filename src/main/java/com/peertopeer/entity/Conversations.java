@@ -37,10 +37,11 @@ public class Conversations {
     private Boolean readStatus;
     private Boolean isPinned;
 
+    private String groupIcon;
+
     @Column(updatable = false)
     private Long createdAt;
 
-    @Version
     private Long updatedAt;
 
 

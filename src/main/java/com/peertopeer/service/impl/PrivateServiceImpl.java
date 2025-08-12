@@ -66,7 +66,7 @@ public class PrivateServiceImpl implements PrivateChat {
 
         String msg = payload.get("msg");
         String replayTo = payload.get("replayTo");
-        String messageId = String.valueOf(chatService.saveMessage(conversationId, sender, replayTo, msg, status));
+        String messageId = String.valueOf(chatService.saveMessage(conversationId, sender, msg, replayTo, status));
 
         if (online && isOnScreen) {
             MessageResponseVO response = MessageResponseVO.builder()

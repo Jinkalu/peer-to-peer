@@ -1,0 +1,144 @@
+package com.peertopeer.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import lombok.Data;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/groups-test")
+public class GroupFileUploadController {
+
+    // METHOD 2: Using JSON metadata as string parameter
+    @PostMapping(value = "/{groupId}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload multiple media files with JSON metadata",
+            description = "Upload multiple media files with complex metadata as JSON string")
+    @RequestBody(content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+            schema = @Schema(implementation = MediaUploadWithJsonRequest.class),
+            encoding = @Encoding(name = "files", contentType = "application/octet-stream")))
+    public Map<String, String> uploadMediaWithJson(
+            @Parameter(description = "Group ID", required = true, example = "123")
+            @PathVariable Long groupId, @Parameter(description = "Multiple media files", required = true)
+            @RequestParam("files") List<MultipartFile> files,
+            @Parameter(description = "Media metadata as JSON string", required = false,
+                    schema = @Schema(implementation = MediaMetadata.class),
+                    example = """
+                            {
+                              "album": "Summer Trip 2024",
+                              "location": "Beach Resort",
+                              "tags": ["vacation", "beach", "friends"],
+                              "allowComments": true,
+                              "autoTagFaces": false,
+                              "compressionLevel": "medium",
+                              "watermarkSettings": {
+                                "enabled": true,
+                                "position": "bottom-right",
+                                "opacity": 0.7
+                              }
+                            }
+                            """
+            )
+            @RequestParam(value = "metadata", required = false) String metadataJson) {
+
+
+        return Map.of("avatarUrl", "Files dhuhwiuwh");
+    }
+
+    @Data
+    @Schema(description = "Media upload request with JSON metadata")
+    class MediaUploadWithJsonRequest {
+        @Schema(description = "Media files", required = true, type = "array", format = "binary")
+        private List<MultipartFile> files;
+
+        @Schema(description = "Metadata as JSON string", implementation = MediaMetadata.class)
+        private String metadata;
+
+        // getters and setters
+    }
+
+    @Data
+    @Schema(description = "Media metadata")
+    class MediaMetadata {
+        @Schema(description = "Album name", example = "Summer Trip 2024")
+        private String album;
+
+        @Schema(description = "Location", example = "Beach Resort")
+        private String location;
+
+        @Schema(description = "Tags")
+        private List<String> tags;
+
+        @Schema(description = "Allow comments")
+        private Boolean allowComments;
+
+        @Schema(description = "Auto tag faces")
+        private Boolean autoTagFaces;
+
+        @Schema(description = "Compression level", example = "medium")
+        private String compressionLevel;
+
+/*        @Schema(description = "Watermark settings")
+        private WatermarkSettings watermarkSettings;*/
+
+        // getters and setters
+        public String getAlbum() {
+            return album;
+        }
+
+        public void setAlbum(String album) {
+            this.album = album;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public void setLocation(String location) {
+            this.location = location;
+        }
+
+        public List<String> getTags() {
+            return tags;
+        }
+
+        public void setTags(List<String> tags) {
+            this.tags = tags;
+        }
+
+        public Boolean getAllowComments() {
+            return allowComments;
+        }
+
+        public void setAllowComments(Boolean allowComments) {
+            this.allowComments = allowComments;
+        }
+
+        public Boolean getAutoTagFaces() {
+            return autoTagFaces;
+        }
+
+        public void setAutoTagFaces(Boolean autoTagFaces) {
+            this.autoTagFaces = autoTagFaces;
+        }
+
+        public String getCompressionLevel() {
+            return compressionLevel;
+        }
+
+        public void setCompressionLevel(String compressionLevel) {
+            this.compressionLevel = compressionLevel;
+        }
+
+        /*public WatermarkSettings getWatermarkSettings() { return watermarkSettings; }
+        public void setWatermarkSettings(WatermarkSettings watermarkSettings) { this.watermarkSettings = watermarkSettings; }*/
+    }
+}

@@ -1,17 +1,17 @@
 package com.peertopeer.service.impl;
 
-import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Users;
+import com.peertopeer.utils.ChatUtils;
+import lombok.RequiredArgsConstructor;
+import com.peertopeer.vo.ConversationVO;
+import com.peertopeer.service.JwtService;
+import com.peertopeer.entity.Conversations;
 import com.peertopeer.enums.ConversationType;
-import com.peertopeer.repository.ConversationsRepository;
+import org.springframework.stereotype.Service;
 import com.peertopeer.repository.UserRepository;
 import com.peertopeer.service.ConversationService;
-import com.peertopeer.service.JwtService;
-import com.peertopeer.utils.ChatUtils;
-import com.peertopeer.vo.ConversationVO;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
+import com.peertopeer.repository.ConversationsRepository;
 
 import java.util.HashSet;
 import java.util.List;

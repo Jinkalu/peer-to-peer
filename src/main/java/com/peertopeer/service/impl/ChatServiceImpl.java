@@ -2,8 +2,8 @@ package com.peertopeer.service.impl;
 
 import com.peertopeer.vo.MessageVO;
 import com.peertopeer.entity.Message;
-import com.peertopeer.utils.ChatUtils;
 import lombok.RequiredArgsConstructor;
+import com.peertopeer.utils.ChatUtils;
 import jakarta.transaction.Transactional;
 import com.peertopeer.service.JwtService;
 import com.peertopeer.enums.MessageStatus;
@@ -17,8 +17,8 @@ import com.peertopeer.repository.MessageRepository;
 import com.peertopeer.repository.ConversationsRepository;
 import com.peertopeer.repository.GroupMessageReactionRepository;
 
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -58,7 +58,8 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public Long saveMessage(String conversationId, String fromUser, String msg, String replayTo, MessageStatus status) {
+    public Long saveMessage(String conversationId, String fromUser, String msg,
+                            String replayTo, MessageStatus status) {
         conversationsRepository.updateUpdatedAtById(System.currentTimeMillis(), Long.valueOf(conversationId));
         Message message = messageRepository.saveAndFlush(Message.builder()
                 .message(msg)
@@ -109,8 +110,9 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional(rollbackOn = Exception.class)
     public void deleteMessage(Long messageId) {
-        messageRepository.updateStatusById(MessageStatus.DELETED, messageId);
+        messageRepository.deleteMessageAndClearReplies(messageId);
     }
 
 

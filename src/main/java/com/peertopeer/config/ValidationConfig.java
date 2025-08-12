@@ -1,0 +1,28 @@
+package com.peertopeer.config;
+
+
+
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+
+
+
+@Configuration
+public class ValidationConfig {
+
+    @Bean
+    public Validator validator() {
+        return Validation.buildDefaultValidatorFactory().getValidator();
+    }
+
+    @Bean
+    public MethodValidationPostProcessor methodValidationPostProcessor() {
+        MethodValidationPostProcessor processor = new MethodValidationPostProcessor();
+        processor.setValidator(validator());
+        return processor;
+    }
+}

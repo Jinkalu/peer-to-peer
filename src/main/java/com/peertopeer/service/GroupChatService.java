@@ -3,6 +3,7 @@ package com.peertopeer.service;
 import com.peertopeer.entity.Message;
 import com.peertopeer.vo.GroupVO;
 import com.peertopeer.vo.GroupCreationVO;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.List;
@@ -24,4 +25,6 @@ public interface GroupChatService {
     String getGroupId(WebSocketSession session);
 
     void removeUserFromRoom(WebSocketSession session);
+
+    String setGroupIcon(Long id, MultipartFile groupIcon);
 }

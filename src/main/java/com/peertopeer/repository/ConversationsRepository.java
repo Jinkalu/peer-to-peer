@@ -2,6 +2,7 @@ package com.peertopeer.repository;
 
 import com.peertopeer.entity.Conversations;
 import com.peertopeer.entity.Users;
+import com.peertopeer.enums.ConversationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -74,4 +75,6 @@ public interface ConversationsRepository extends JpaRepository<Conversations, Lo
             AND u.id != :userId
             """)
     Long findPeerUser(Long conversationId, Long userId);
+
+    Optional<Conversations> findByIdAndType(Long id, ConversationType type);
 }

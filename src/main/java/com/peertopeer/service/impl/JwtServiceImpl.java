@@ -10,11 +10,9 @@ import com.peertopeer.utils.JwtProperties;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Date;
-import java.security.Key;
 import java.util.Map;
+import java.security.Key;
 
 
 @Service

@@ -13,10 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 
 @Configuration
-@OpenAPIDefinition(
-        servers = {@Server(description = "Default URL", url = "/")
-        }
-)
+@OpenAPIDefinition(servers = {@Server(description = "Default URL", url = "/")})
 public class SwaggerConfig {
 
     private static final String SCHEME_NAME = "bearerAuth";
