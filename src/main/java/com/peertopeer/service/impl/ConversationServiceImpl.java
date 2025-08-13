@@ -34,8 +34,10 @@ public class ConversationServiceImpl implements ConversationService {
                     ConversationVO conversationVO = ChatUtils.mapToConversationVO(userId, conversation);
                     boolean isGroup = Objects.equals(conversation.getType(), ConversationType.GROUP_CHAT);
                     conversationVO.setUnreadCount(unreadCountInConvo(userId, conversation.getId()));
-                    conversationVO.setOwner(isGroup ? ChatUtils.mapToMembersVO(userRepository.findById(conversation.getCreatedBy()).get()) : null);
-                    conversationVO.setPeerUser(!isGroup ? ChatUtils.mapToMembersVO(conversationsRepository.getPeerUser(userId, conversation.getId())) : null);
+                    conversationVO.setOwner(isGroup ?
+                            ChatUtils.mapToMembersVO(userRepository.findById(conversation.getCreatedBy()).get()) : null);
+                    conversationVO.setPeerUser(!isGroup ?
+                            ChatUtils.mapToMembersVO(conversationsRepository.getPeerUser(userId, conversation.getId())) : null);
                     return conversationVO;
                 }).toList();
     }
@@ -47,7 +49,7 @@ public class ConversationServiceImpl implements ConversationService {
 
     @Override
     @Cacheable(value = "peerUserCache", key = "#conversationId + '-' + #userId")
-    public String findPeerUser(Long conversationId, Long userId) {
+    public String   findPeerUser(Long conversationId, Long userId) {
         return conversationsRepository.findPeerUser(conversationId, userId).toString();
     }
 

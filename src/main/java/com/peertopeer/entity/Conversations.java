@@ -60,12 +60,12 @@ public class Conversations {
         this.status = ConversationStatus.ACTIVE;
         this.readStatus = false;
         this.isPinned = false;
-        this.createdAt = Instant.now().toEpochMilli();
+        this.createdAt = System.currentTimeMillis();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = Instant.now().toEpochMilli();
+        this.updatedAt = System.currentTimeMillis();
     }
 
 }

@@ -1,11 +1,11 @@
 package com.peertopeer.socket.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import lombok.RequiredArgsConstructor;
-import com.peertopeer.service.StatusService;
-import com.peertopeer.service.PresenceService;
 import com.peertopeer.service.GroupChatService;
+import com.peertopeer.service.PresenceService;
+import com.peertopeer.service.StatusService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -28,7 +28,7 @@ public class GroupChatWebSocketHandler extends BaseAuthenticatedWebSocketHandler
     public static final Map<Long, Set<Long>> activeRoomMembers = new ConcurrentHashMap<>();
 
     @Override
-    protected void onAuthenticatedConnection(WebSocketSession session, String username, String userId) throws Exception {
+    protected void onAuthenticatedConnection(WebSocketSession session, String username, String userId) {
         String conversationId = groupChatService.getGroupId(session);
         if (conversationId != null) {
             presenceService.setOnScreen(conversationId, userId);
@@ -58,7 +58,8 @@ public class GroupChatWebSocketHandler extends BaseAuthenticatedWebSocketHandler
     }
 
     @Override
-    protected void onAuthenticatedDisconnection(WebSocketSession session, String username, String userId, CloseStatus status) throws Exception {
+    protected void onAuthenticatedDisconnection(WebSocketSession session, String username,
+                                                String userId, CloseStatus status) {
         groupChatService.removeUserFromRoom(session);
     }
 }

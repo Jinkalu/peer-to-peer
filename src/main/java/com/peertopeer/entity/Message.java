@@ -63,11 +63,11 @@ public class Message {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = Instant.now().toEpochMilli();
+        this.createdAt = System.currentTimeMillis();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = Instant.now().toEpochMilli();
+        this.updatedAt = System.currentTimeMillis();
     }
 }

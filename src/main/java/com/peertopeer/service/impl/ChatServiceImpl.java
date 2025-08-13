@@ -91,13 +91,16 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public void messageReaction(Long messageId, String reaction, String type) {
+
         if (reaction == null || reaction.isEmpty()) {
             messageRepository.updateReactionById(reaction, messageId);
             return;
         }
+
         if (!isValidEmoji(reaction)) {
             throw new IllegalArgumentException("Only emojis are allowed!");
         }
+
         if (type.equals(ConversationType.GROUP_CHAT.name())) {
             groupMessageReactionRepository.save(GroupMessageReaction.builder()
                     .reaction(reaction)
@@ -107,6 +110,7 @@ public class ChatServiceImpl implements ChatService {
         } else {
             messageRepository.updateReactionById(reaction, messageId);
         }
+
     }
 
     @Override
