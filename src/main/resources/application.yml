@@ -1,4 +1,5 @@
 server:
+  port: 8081
   shutdown: GRACEFUL
 
 spring:
