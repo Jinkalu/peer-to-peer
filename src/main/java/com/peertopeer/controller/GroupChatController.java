@@ -34,11 +34,11 @@ public class GroupChatController {
     public Map<String, String> uploadGroupAvatar(
             @Parameter(description = "Group ID", required = true, example = "123")
             @PathVariable Long id,
-            @Parameter(description = "Avatar image file (JPG, PNG, GIF)", content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
+            @Parameter(description = "Avatar image file (JPG, PNG, GIF)",
+                    content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
             @RequestParam(name = "file", required = false) MultipartFile file) {
         return Map.of("avatarUrl", groupChatService.setGroupIcon(id, file));
     }
-
 
 
     @PostMapping("/add-member")
