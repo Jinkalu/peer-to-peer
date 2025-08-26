@@ -1,5 +1,6 @@
 package com.peertopeer.service.impl;
 
+import com.peertopeer.records.UserSummary;
 import com.peertopeer.vo.UserVO;
 import com.peertopeer.entity.Users;
 import com.peertopeer.vo.UserLoginVO;
@@ -7,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import com.peertopeer.service.JwtService;
 import com.peertopeer.service.UserService;
 import com.peertopeer.entity.Conversations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.peertopeer.repository.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -58,13 +61,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserVO getUser(String username) {
-        return userRepository.findByUsername(username)
-                .map(user -> UserVO.builder()
-                        .id(user.getId())
-                        .username(username)
-                        .build())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Page<UserSummary> getUser(String username, Pageable pageable) {
+        Long currentUserId = JwtService.getUserDetails().getId();
+        return userRepository.searchUsernamesStartingWith(currentUserId, username, pageable);
     }
 
     @Override
