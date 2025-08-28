@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Repository
-public interface MessageRepository extends JpaRepository<Message, Long> {
+public interface MessageRepository extends JpaRepository<Message, String> {
 
     List<Message> findByConversation_Id(Long id);
 
@@ -54,7 +54,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Transactional
     @Modifying
     @Query("update Message m set m.reaction = ?1 where m.id = ?2")
-    void updateReactionById(String reaction, Long id);
+    void updateReactionById(String reaction, String id);
 
 
     @Modifying
@@ -71,5 +71,5 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
                 END
             WHERE id = :messageId OR replay_to_id = :messageId
             """, nativeQuery = true)
-    void deleteMessageAndClearReplies(@Param("messageId") Long messageId);
+    void deleteMessageAndClearReplies(@Param("messageId") String messageId);
 }

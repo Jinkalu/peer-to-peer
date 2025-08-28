@@ -21,8 +21,8 @@ import java.util.Set;
 public class Message {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(nullable = false)
+    private String id;
 
     @Column(nullable = false)
     private String senderUUID;

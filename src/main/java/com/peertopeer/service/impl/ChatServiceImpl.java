@@ -58,18 +58,18 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public Long saveMessage(String conversationId, String fromUser, String msg,
+    public void saveMessage(String conversationId, String messageId, String fromUser, String msg,
                             String replayTo, MessageStatus status) {
         conversationsRepository.updateUpdatedAtById(System.currentTimeMillis(), Long.valueOf(conversationId));
-        Message message = messageRepository.saveAndFlush(Message.builder()
+        messageRepository.saveAndFlush(Message.builder()
+                .id(messageId)
                 .message(msg)
                 .conversation(conversationsRepository.findById(Long.valueOf(conversationId)).get())
                 .senderUUID(fromUser)
                 .replayTo(Objects.nonNull(replayTo) ?
-                        messageRepository.findById(Long.valueOf(replayTo)).orElseThrow() : null)
+                        messageRepository.findById(replayTo).orElseThrow() : null)
                 .status(status)
                 .build());
-        return message.getId();
     }
 
     @Override
@@ -90,7 +90,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public void messageReaction(Long messageId, String reaction, String type) {
+    public void messageReaction(String messageId, String reaction, String type) {
 
         if (reaction == null || reaction.isEmpty()) {
             messageRepository.updateReactionById(reaction, messageId);
@@ -115,7 +115,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public void deleteMessage(Long messageId) {
+    public void deleteMessage(String messageId) {
         messageRepository.deleteMessageAndClearReplies(messageId);
     }
 

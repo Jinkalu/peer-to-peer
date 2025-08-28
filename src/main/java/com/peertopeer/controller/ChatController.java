@@ -34,13 +34,13 @@ public class ChatController {
     }
 
     @PostMapping("/delete/{messageId}")
-    public void deleteMessage(@PathVariable Long messageId) {
+    public void deleteMessage(@PathVariable String messageId) {
         chatService.deleteMessage(messageId);
     }
 
 
     @PostMapping("/reaction/{messageId}")
-    public void messageReaction(@PathVariable Long messageId,
+    public void messageReaction(@PathVariable String messageId,
                                 @RequestParam(required = false) String type,
                                 @RequestParam(required = false) String reaction) {
         chatService.messageReaction(messageId, reaction, type);

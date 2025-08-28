@@ -14,7 +14,8 @@ public interface ChatService {
 
     Long create(String user, String target);
 
-    Long saveMessage(String conversationId, String fromUser, String msg, String replayTo, MessageStatus status);
+    void saveMessage(String conversationId, String messageId, String fromUser,
+                       String msg, String replayTo, MessageStatus status);
 
     void updateMessageStatus(String userId);
 
@@ -23,7 +24,7 @@ public interface ChatService {
 
     Long unreadCount(String target, String connectedUser);
 
-    void messageReaction(Long messageId, String reaction, String type);
+    void messageReaction(String messageId, String reaction, String type);
 
-    void deleteMessage(Long messageId);
+    void deleteMessage(String messageId);
 }

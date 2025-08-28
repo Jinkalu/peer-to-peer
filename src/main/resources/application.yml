@@ -12,15 +12,15 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
-  datasource:
-    url: jdbc:postgresql://66.29.152.193:5432/chat-service-test-db
-    username: trrings
-    password: 2(jXzO0O3a3f
-
 #  datasource:
-#    url: jdbc:postgresql://localhost:5432/peer-to-peer
-#    username: postgres
-#    password: postgres
+#    url: jdbc:postgresql://66.29.152.193:5432/chat-service-test-db
+#    username: trrings
+#    password: 2(jXzO0O3a3f
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/peer-to-peer
+    username: postgres
+    password: postgres
     hikari:
       connection-test-query: SELECT 1
       leak-detection-threshold: 5000
@@ -29,7 +29,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:

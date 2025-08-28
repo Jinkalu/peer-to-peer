@@ -22,7 +22,7 @@ import static com.peertopeer.socket.handlers.GroupChatWebSocketHandler.roomSessi
 
 @Slf4j
 @RequiredArgsConstructor
-public abstract class GroupMessagingHelper  implements GroupChatService {
+public abstract class GroupMessagingHelper implements GroupChatService {
 
     // Use a single ObjectMapper instance (thread-safe)
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -43,9 +43,10 @@ public abstract class GroupMessagingHelper  implements GroupChatService {
         String user = (String) session.getAttributes().get("userId");
         String msg = payload.get("msg");
         String replayTo = payload.get("replayTo");
+        String messageId = payload.get("messageId");
 
         // Save message to database
-        chatService.saveMessage(room, user, msg, replayTo, MessageStatus.DELIVERED);
+        chatService.saveMessage(room, messageId, user, msg, replayTo, MessageStatus.DELIVERED);
 
         // Broadcast optimized
         broadcastMessageOptimized(room, user, msg, session);
